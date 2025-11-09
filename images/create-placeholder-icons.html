@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html><head><title>Creating Icons...</title></head><body>
+<script>
+function createIcon(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const scale = size / 128;
+
+  // Gradient
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, '#667eea');
+  gradient.addColorStop(1, '#764ba2');
+  
+  // Rounded rect
+  const radius = 24 * scale;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(size - radius, 0);
+  ctx.quadraticCurveTo(size, 0, size, radius);
+  ctx.lineTo(size, size - radius);
+  ctx.quadraticCurveTo(size, size, size - radius, size);
+  ctx.lineTo(radius, size);
+  ctx.quadraticCurveTo(0, size, 0, size - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Note lines
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillRect(40*scale, 35*scale, 48*scale, 10*scale);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillRect(40*scale, 55*scale, 48*scale, 8*scale);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillRect(40*scale, 71*scale, 35*scale, 8*scale);
+
+  // Plus
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  ctx.arc(94*scale, 94*scale, 18*scale, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 3*scale;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(94*scale, 86*scale);
+  ctx.lineTo(94*scale, 102*scale);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(86*scale, 94*scale);
+  ctx.lineTo(102*scale, 94*scale);
+  ctx.stroke();
+
+  return canvas;
+}
+
+// Create and download all sizes
+[16, 48, 128].forEach((size, i) => {
+  setTimeout(() => {
+    const canvas = createIcon(size);
+    canvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `icon${size}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      if (i === 2) {
+        document.body.innerHTML = '<h1 style="font-family:sans-serif;color:#667eea;padding:40px;">✅ Icons created! Check your Downloads folder, then move them to the images/ folder.</h1>';
+      }
+    });
+  }, i * 500);
+});
+</script>
+<h1 style="font-family:sans-serif;color:#667eea;padding:40px;">Creating icons... Downloads will start automatically.</h1>
+</body></html>

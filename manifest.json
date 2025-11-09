@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Offline Notes - Local Markdown & Image Creator",
+  "version": "1.0.0",
+  "description": "Create notes offline, export to Markdown, generate images from templates. All data stored locally.",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "tabs"
+  ],
+  "action": {
+    "default_title": "Quick Note",
+    "default_popup": "popup/popup.html"
+  },
+  "side_panel": {
+    "default_path": "sidebar/sidebar.html"
+  },
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "commands": {
+    "quick-note": {
+      "suggested_key": {
+        "default": "Alt+N",
+        "mac": "Alt+N"
+      },
+      "description": "Create quick note"
+    },
+    "open-sidebar": {
+      "suggested_key": {
+        "default": "Alt+Shift+N",
+        "mac": "Alt+Shift+N"
+      },
+      "description": "Open notes sidebar"
+    }
+  }
+}

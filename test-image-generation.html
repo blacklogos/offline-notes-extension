@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Generation Test Suite</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+      margin: 0;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #667eea;
+      margin-top: 0;
+    }
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .test-result {
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .test-pass {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .test-fail {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .test-info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    button {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .preview-box {
+      margin: 20px 0;
+      padding: 20px;
+      background: white;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      min-height: 100px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Image Generation Test Suite (TDD)</h1>
+    <p>Comprehensive testing for html2canvas integration and template system.</p>
+
+    <!-- Test Statistics -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Tests</div>
+        <div class="stat-number" id="totalTests">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Passed</div>
+        <div class="stat-number" id="passedTests">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failed</div>
+        <div class="stat-number" id="failedTests">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Success Rate</div>
+        <div class="stat-number" id="successRate">0%</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div>
+      <button onclick="runAllTests()">▶️ Run All Tests</button>
+      <button onclick="clearResults()">🗑️ Clear Results</button>
+      <button onclick="generateSampleImage()">📸 Generate Sample Image</button>
+    </div>
+
+    <!-- Test Results -->
+    <div id="testResults"></div>
+
+    <!-- Preview Area -->
+    <div class="test-section">
+      <h3>Preview & Generated Images</h3>
+      <div id="previewArea" class="preview-box"></div>
+    </div>
+  </div>
+
+  <!-- Load dependencies -->
+  <script src="lib/html2canvas.min.js"></script>
+  <script src="lib/templates.js"></script>
+  <script src="lib/image-generator.js"></script>
+
+  <script>
+    // Test state
+    let testResults = [];
+    let totalTests = 0;
+    let passedTests = 0;
+    let failedTests = 0;
+
+    // Sample test data
+    const sampleNote = {
+      id: 'test_123',
+      title: 'Test Note for Image Generation',
+      content: 'This is a comprehensive test note.\n\nIt contains:\n- Multiple lines\n- Special characters: <>&"\'\n- Unicode: 🎨📝✨\n\nThis tests HTML escaping and rendering.',
+      tags: ['test', 'automation', 'TDD'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Test runner
+    function assert(condition, message) {
+      totalTests++;
+      const result = {
+        passed: condition,
+        message: message,
+        timestamp: new Date().toISOString()
+      };
+
+      if (condition) {
+        passedTests++;
+      } else {
+        failedTests++;
+      }
+
+      testResults.push(result);
+      updateStats();
+      displayResult(result);
+
+      return condition;
+    }
+
+    function updateStats() {
+      document.getElementById('totalTests').textContent = totalTests;
+      document.getElementById('passedTests').textContent = passedTests;
+      document.getElementById('failedTests').textContent = failedTests;
+      const rate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+      document.getElementById('successRate').textContent = rate + '%';
+    }
+
+    function displayResult(result) {
+      const div = document.createElement('div');
+      div.className = `test-result ${result.passed ? 'test-pass' : 'test-fail'}`;
+      div.innerHTML = `
+        <strong>${result.passed ? '✅ PASS' : '❌ FAIL'}</strong>: ${result.message}
+        <br><small>${new Date(result.timestamp).toLocaleTimeString()}</small>
+      `;
+      document.getElementById('testResults').appendChild(div);
+    }
+
+    function displayInfo(message) {
+      const div = document.createElement('div');
+      div.className = 'test-result test-info';
+      div.innerHTML = `<strong>ℹ️ INFO</strong>: ${message}`;
+      document.getElementById('testResults').appendChild(div);
+    }
+
+    function clearResults() {
+      document.getElementById('testResults').innerHTML = '';
+      document.getElementById('previewArea').innerHTML = '';
+      testResults = [];
+      totalTests = 0;
+      passedTests = 0;
+      failedTests = 0;
+      updateStats();
+    }
+
+    // Test Suite
+    async function runAllTests() {
+      clearResults();
+      displayInfo('Starting comprehensive test suite...');
+
+      // Test 1: Check html2canvas is loaded
+      assert(
+        typeof html2canvas !== 'undefined',
+        'html2canvas library is loaded'
+      );
+
+      // Test 2: Check html2canvas is a function
+      assert(
+        typeof html2canvas === 'function',
+        'html2canvas is a callable function'
+      );
+
+      // Test 3: Check TemplateManager exists
+      assert(
+        typeof TemplateManager !== 'undefined',
+        'TemplateManager class is defined'
+      );
+
+      // Test 4: Check ImageGenerator exists
+      assert(
+        typeof ImageGenerator !== 'undefined',
+        'ImageGenerator class is defined'
+      );
+
+      // Test 5: Create TemplateManager instance
+      let templateManager;
+      try {
+        templateManager = new TemplateManager();
+        assert(true, 'TemplateManager instance created successfully');
+      } catch (error) {
+        assert(false, `TemplateManager instantiation failed: ${error.message}`);
+        return;
+      }
+
+      // Test 6: Check escapeHtml method exists and is bound
+      assert(
+        typeof templateManager.escapeHtml === 'function',
+        'TemplateManager.escapeHtml method exists'
+      );
+
+      // Test 7: Test HTML escaping
+      const escapedText = templateManager.escapeHtml('<script>alert("XSS")</script>');
+      assert(
+        escapedText.includes('&lt;') && escapedText.includes('&gt;'),
+        'HTML escaping works correctly'
+      );
+
+      // Test 8: Check all 5 templates exist
+      const templates = ['default', 'minimal', 'card', 'quote', 'modern'];
+      let allTemplatesExist = true;
+      templates.forEach(name => {
+        if (!templateManager.templates[name]) {
+          allTemplatesExist = false;
+        }
+      });
+      assert(allTemplatesExist, 'All 5 templates (default, minimal, card, quote, modern) are defined');
+
+      // Test 9: Generate HTML for each template
+      for (const templateName of templates) {
+        try {
+          const html = templateManager.getTemplate(templateName, sampleNote);
+          assert(
+            html && html.length > 0,
+            `${templateName} template generates HTML`
+          );
+          assert(
+            !html.includes('<script>'),
+            `${templateName} template properly escapes XSS attempts`
+          );
+        } catch (error) {
+          assert(false, `${templateName} template generation failed: ${error.message}`);
+        }
+      }
+
+      // Test 10: Create ImageGenerator instance
+      let imageGen;
+      try {
+        imageGen = new ImageGenerator();
+        assert(true, 'ImageGenerator instance created successfully');
+      } catch (error) {
+        assert(false, `ImageGenerator instantiation failed: ${error.message}`);
+        return;
+      }
+
+      // Test 11: Generate actual image (this is the critical test)
+      displayInfo('Starting image generation test (this may take a few seconds)...');
+      try {
+        const canvas = await imageGen.generateImage(sampleNote, 'default');
+        assert(
+          canvas && canvas.tagName === 'CANVAS',
+          'Image generation returns a canvas element'
+        );
+        assert(
+          canvas.width > 0 && canvas.height > 0,
+          `Generated canvas has valid dimensions: ${canvas.width}x${canvas.height}`
+        );
+
+        // Display the generated image
+        const previewArea = document.getElementById('previewArea');
+        previewArea.innerHTML = '<h4>Generated Image Preview:</h4>';
+        canvas.style.maxWidth = '100%';
+        canvas.style.border = '1px solid #ddd';
+        canvas.style.borderRadius = '8px';
+        previewArea.appendChild(canvas);
+
+      } catch (error) {
+        assert(false, `Image generation failed: ${error.message}`);
+        displayInfo(`Error details: ${error.stack}`);
+      }
+
+      // Test 12: Test sanitizeFilename
+      const sanitized = imageGen.sanitizeFilename('Test <File> Name: 123!');
+      assert(
+        sanitized === 'test-file-name-123',
+        `Filename sanitization works correctly: "${sanitized}"`
+      );
+
+      // Final summary
+      displayInfo(`Test suite completed! ${passedTests}/${totalTests} tests passed.`);
+
+      if (passedTests === totalTests) {
+        displayInfo('🎉 All tests passed! Image generation is working correctly.');
+      } else {
+        displayInfo(`⚠️ ${failedTests} test(s) failed. Please review the results above.`);
+      }
+    }
+
+    // Generate and download a sample image
+    async function generateSampleImage() {
+      try {
+        displayInfo('Generating sample image...');
+        const imageGen = new ImageGenerator();
+        await imageGen.downloadImage(sampleNote, 'default', 'png');
+        displayInfo('✅ Sample image downloaded successfully!');
+      } catch (error) {
+        displayInfo(`❌ Error generating sample image: ${error.message}`);
+      }
+    }
+
+    // Auto-run tests on page load
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        displayInfo('Page loaded. Click "Run All Tests" to begin testing.');
+      }, 500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Extension Icons</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+    .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+    h1 { color: #667eea; }
+    .icon-preview { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+    canvas { border: 1px solid #ddd; margin: 10px; }
+    button { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 5px; }
+    button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📝 Generate Extension Icons</h1>
+    <p>Click the buttons below to generate and download icons for the extension.</p>
+    
+    <div class="icon-preview">
+      <h3>Icon Preview:</h3>
+      <canvas id="preview128" width="128" height="128"></canvas>
+      <canvas id="preview48" width="48" height="48"></canvas>
+      <canvas id="preview16" width="16" height="16"></canvas>
+    </div>
+
+    <div>
+      <button onclick="downloadIcon(128)">Download 128x128</button>
+      <button onclick="downloadIcon(48)">Download 48x48</button>
+      <button onclick="downloadIcon(16)">Download 16x16</button>
+      <button onclick="downloadAllIcons()">Download All Icons</button>
+    </div>
+
+    <h3>Instructions:</h3>
+    <ol>
+      <li>Click "Download All Icons" button</li>
+      <li>Save the files as icon128.png, icon48.png, icon16.png</li>
+      <li>Move them to the /images/ folder</li>
+      <li>Reload the extension</li>
+    </ol>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      const scale = size / 128;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, size, size);
+
+      // Gradient background
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#667eea');
+      gradient.addColorStop(1, '#764ba2');
+      
+      // Rounded rectangle
+      const radius = 24 * scale;
+      ctx.beginPath();
+      ctx.moveTo(radius, 0);
+      ctx.lineTo(size - radius, 0);
+      ctx.quadraticCurveTo(size, 0, size, radius);
+      ctx.lineTo(size, size - radius);
+      ctx.quadraticCurveTo(size, size, size - radius, size);
+      ctx.lineTo(radius, size);
+      ctx.quadraticCurveTo(0, size, 0, size - radius);
+      ctx.lineTo(0, radius);
+      ctx.quadraticCurveTo(0, 0, radius, 0);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Note lines
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(40 * scale, 35 * scale, 48 * scale, 10 * scale);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillRect(40 * scale, 55 * scale, 48 * scale, 8 * scale);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fillRect(40 * scale, 71 * scale, 35 * scale, 8 * scale);
+
+      // Plus icon
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.arc(94 * scale, 94 * scale, 18 * scale, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 3 * scale;
+      ctx.lineCap = 'round';
+      
+      // Vertical line of plus
+      ctx.beginPath();
+      ctx.moveTo(94 * scale, 86 * scale);
+      ctx.lineTo(94 * scale, 102 * scale);
+      ctx.stroke();
+      
+      // Horizontal line of plus
+      ctx.beginPath();
+      ctx.moveTo(86 * scale, 94 * scale);
+      ctx.lineTo(102 * scale, 94 * scale);
+      ctx.stroke();
+    }
+
+    // Draw previews
+    drawIcon(document.getElementById('preview128'));
+    drawIcon(document.getElementById('preview48'));
+    drawIcon(document.getElementById('preview16'));
+
+    function downloadIcon(size) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      drawIcon(canvas);
+      
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `icon${size}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function downloadAllIcons() {
+      [128, 48, 16].forEach((size, index) => {
+        setTimeout(() => downloadIcon(size), index * 300);
+      });
+    }
+  </script>
+</body>
+</html>

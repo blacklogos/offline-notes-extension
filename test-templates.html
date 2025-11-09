@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Templates</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+    }
+    h1 { color: #667eea; }
+    button {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    #preview {
+      margin-top: 20px;
+      border: 2px dashed #ddd;
+      padding: 20px;
+      overflow: auto;
+      background: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Template Preview & Image Generator</h1>
+    <p>Test all 5 image templates before using in the extension.</p>
+
+    <div>
+      <button onclick="testTemplate('default')">Default Template</button>
+      <button onclick="testTemplate('minimal')">Minimal Template</button>
+      <button onclick="testTemplate('card')">Card Template</button>
+      <button onclick="testTemplate('quote')">Quote Template</button>
+      <button onclick="testTemplate('modern')">Modern Template</button>
+    </div>
+
+    <div>
+      <button onclick="generateImage()" style="background: #28a745;">📸 Generate Image</button>
+      <button onclick="downloadImage()" style="background: #007bff;">💾 Download PNG</button>
+    </div>
+
+    <div id="preview"></div>
+  </div>
+
+  <!-- Load html2canvas locally -->
+  <script src="lib/html2canvas.min.js"></script>
+
+  <!-- Load templates -->
+  <script src="lib/templates.js"></script>
+
+  <script>
+    const templateManager = new TemplateManager();
+    let currentTemplate = 'default';
+    let currentCanvas = null;
+
+    // Sample note data
+    const sampleNote = {
+      title: "My Amazing Note",
+      content: "This is a test note with some content.\n\nIt supports multiple lines and will be truncated if too long. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      tags: ["important", "work", "test"],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    function testTemplate(templateName) {
+      currentTemplate = templateName;
+      const html = templateManager.getTemplate(templateName, sampleNote);
+      document.getElementById('preview').innerHTML = html;
+      console.log('Template loaded:', templateName);
+    }
+
+    async function generateImage() {
+      const previewElement = document.getElementById('preview').firstElementChild;
+
+      if (!previewElement) {
+        alert('Please select a template first!');
+        return;
+      }
+
+      try {
+        console.log('Generating image...');
+        currentCanvas = await html2canvas(previewElement, {
+          backgroundColor: null,
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        });
+
+        // Show canvas preview
+        const canvasPreview = document.createElement('div');
+        canvasPreview.innerHTML = '<h3>Generated Image:</h3>';
+        canvasPreview.appendChild(currentCanvas);
+        document.getElementById('preview').appendChild(canvasPreview);
+
+        console.log('Image generated successfully!');
+      } catch (error) {
+        console.error('Error generating image:', error);
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function downloadImage() {
+      if (!currentCanvas) {
+        alert('Please generate an image first!');
+        return;
+      }
+
+      currentCanvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `note-${currentTemplate}-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        console.log('Image downloaded!');
+      });
+    }
+
+    // Load default template on page load
+    window.onload = () => {
+      testTemplate('default');
+    };
+  </script>
+</body>
+</html>
