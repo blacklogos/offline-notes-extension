@@ -285,14 +285,14 @@
       );
 
       // Test 8: Check all 5 templates exist
-      const templates = ['default', 'minimal', 'card', 'quote', 'modern'];
+      const templates = ['paper-default', 'paper-minimal', 'paper-card', 'paper-quote', 'paper-letterhead'];
       let allTemplatesExist = true;
       templates.forEach(name => {
         if (!templateManager.templates[name]) {
           allTemplatesExist = false;
         }
       });
-      assert(allTemplatesExist, 'All 5 templates (default, minimal, card, quote, modern) are defined');
+      assert(allTemplatesExist, 'All 5 paper-* templates (default, minimal, card, quote, letterhead) are defined');
 
       // Test 9: Generate HTML for each template
       for (const templateName of templates) {
@@ -324,7 +324,7 @@
       // Test 11: Generate actual image (this is the critical test)
       displayInfo('Starting image generation test (this may take a few seconds)...');
       try {
-        const canvas = await imageGen.generateImage(sampleNote, 'default');
+        const canvas = await imageGen.generateImage(sampleNote, 'paper-default');
         assert(
           canvas && canvas.tagName === 'CANVAS',
           'Image generation returns a canvas element'
@@ -369,7 +369,7 @@
       try {
         displayInfo('Generating sample image...');
         const imageGen = new ImageGenerator();
-        await imageGen.downloadImage(sampleNote, 'default', 'png');
+        await imageGen.downloadImage(sampleNote, 'paper-default', 'png');
         displayInfo('✅ Sample image downloaded successfully!');
       } catch (error) {
         displayInfo(`❌ Error generating sample image: ${error.message}`);
