@@ -7,9 +7,9 @@
  */
 
 mark.offline-notes-highlight {
-  background-color: #F4E4A1;
-  color: inherit;
-  padding: 0 2px;
+  background-color: #F4E4A1 !important;
+  color: #2A2622 !important;
+  padding: 1px 3px;
   border-radius: 2px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;

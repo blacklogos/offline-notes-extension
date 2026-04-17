@@ -257,15 +257,7 @@ exportMd.addEventListener('click', () => {
   markdown.downloadNote(note);
 });
 
-// Export all notes to Markdown
-exportAllMd.addEventListener('click', async () => {
-  const notes = await storage.getAllNotes();
-  if (notes.length === 0) {
-    alert('No notes to export');
-    return;
-  }
-  markdown.downloadAllNotes(notes);
-});
+// Export-all handler moved to bottom of file (context-aware: Notes tab vs Pages tab).
 
 // Generate image from note
 generateImage.addEventListener('click', async () => {
@@ -359,7 +351,13 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     loadNotes();
   }
   if (namespace === 'local' && changes.offline_page_notes) {
-    loadPageNotes();
+    loadPageNotes().then(() => {
+      if (currentPageNote && !pageModal.classList.contains('hidden')) {
+        pageStorage.getById(currentPageNote.id).then((fresh) => {
+          if (fresh) { currentPageNote = fresh; openPageModal(fresh); }
+        });
+      }
+    });
   }
 });
 
@@ -490,16 +488,25 @@ function renderHighlights(note) {
     const card = document.createElement('div');
     card.className = 'highlight-card';
     card.dataset.highlightId = h.id;
+
+    const commentText = h.comment || '';
+    const commentHtml = commentText
+      ? `<div class="highlight-comment" data-hl-id="${h.id}">${escapeHtml(commentText)}</div>`
+      : `<div class="highlight-comment placeholder" data-hl-id="${h.id}">Add a note…</div>`;
+
     card.innerHTML = `
-      <div class="highlight-text">${escapeHtml(h.text)}</div>
-      <div class="highlight-actions">
-        <span class="highlight-time">${relativeTime(h.capturedAt)}</span>
-        <button class="icon-btn act-copy" title="Copy as markdown quote" data-icon="copy"></button>
-        <button class="icon-btn act-jump" title="Open page and jump to this highlight" data-icon="chevronRight"></button>
-        <button class="icon-btn act-delete" title="Delete this highlight" data-icon="trash"></button>
+      <label class="hl-check-label"><input type="checkbox" class="hl-checkbox" value="${h.id}"></label>
+      <div class="highlight-body">
+        <div class="highlight-text">${escapeHtml(h.text)}</div>
+        ${commentHtml}
+        <div class="highlight-actions">
+          <span class="highlight-time">${relativeTime(h.capturedAt)}</span>
+          <button class="icon-btn act-copy" title="Copy as markdown quote" data-icon="copy"></button>
+          <button class="icon-btn act-jump" title="Open page and jump to this highlight" data-icon="chevronRight"></button>
+          <button class="icon-btn act-delete" title="Delete this highlight" data-icon="trash"></button>
+        </div>
       </div>
     `;
-    // Inject icons for the buttons we just created.
     card.querySelectorAll('[data-icon]').forEach((el) => {
       const name = el.dataset.icon;
       if (Icons[name]) el.innerHTML = Icons[name];
@@ -507,12 +514,98 @@ function renderHighlights(note) {
     card.querySelector('.act-copy').onclick = () => copyHighlightAsQuote(h, note);
     card.querySelector('.act-jump').onclick = () => jumpToHighlight(h, note);
     card.querySelector('.act-delete').onclick = () => deleteHighlight(h, note);
+
+    // Inline-edit comment on click.
+    const commentDiv = card.querySelector('.highlight-comment');
+    commentDiv.addEventListener('click', () => {
+      startCommentEdit(commentDiv, h, note);
+    });
+
+    // Checkbox change → update select-all state.
+    card.querySelector('.hl-checkbox').addEventListener('change', updateSelectAllState);
+
     pageHighlightsHost.appendChild(card);
+  });
+  updateSelectAllState();
+}
+
+function startCommentEdit(el, highlight, pageNote) {
+  if (el.querySelector('textarea')) return;
+  const original = highlight.comment || '';
+  el.textContent = '';
+  el.classList.remove('placeholder');
+
+  const ta = document.createElement('textarea');
+  ta.className = 'comment-edit';
+  ta.value = original;
+  ta.placeholder = 'Add a note…';
+  ta.rows = 2;
+  ta.maxLength = 280;
+  el.appendChild(ta);
+
+  const counter = document.createElement('div');
+  counter.className = 'comment-counter';
+  counter.textContent = `${280 - original.length}`;
+  el.appendChild(counter);
+
+  ta.focus();
+
+  ta.addEventListener('input', () => {
+    counter.textContent = `${280 - ta.value.length}`;
+  });
+
+  const save = async () => {
+    const text = ta.value.trim().slice(0, 280);
+    ta.removeEventListener('blur', onBlur);
+    if (text !== original) {
+      highlight.comment = text;
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_HIGHLIGHT_COMMENT',
+        pageNoteId: pageNote.id,
+        highlightId: highlight.id,
+        comment: text,
+      });
+    }
+    el.textContent = text || '';
+    if (!text) { el.textContent = 'Add a note…'; el.classList.add('placeholder'); }
+  };
+  const onBlur = () => save();
+  ta.addEventListener('blur', onBlur);
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { ta.value = original; ta.blur(); }
   });
 }
 
+function getSelectedHighlightIds() {
+  const checked = pageHighlightsHost.querySelectorAll('.hl-checkbox:checked');
+  if (checked.length === 0) return null; // null = all
+  return Array.from(checked).map((cb) => cb.value);
+}
+
+function updateSelectAllState() {
+  const all = pageHighlightsHost.querySelectorAll('.hl-checkbox');
+  const checked = pageHighlightsHost.querySelectorAll('.hl-checkbox:checked');
+  const selectAllCb = document.getElementById('selectAllHighlights');
+  if (!selectAllCb) return;
+  selectAllCb.checked = all.length > 0 && checked.length === all.length;
+  selectAllCb.indeterminate = checked.length > 0 && checked.length < all.length;
+}
+
+// Wired from sidebar.html inline — see the select-all checkbox.
+function toggleSelectAll(checked) {
+  pageHighlightsHost.querySelectorAll('.hl-checkbox').forEach((cb) => { cb.checked = checked; });
+  updateSelectAllState();
+}
+
+document.getElementById('selectAllHighlights')?.addEventListener('change', function () {
+  toggleSelectAll(this.checked);
+});
+
 async function copyHighlightAsQuote(h, note) {
-  const md = `> ${h.text.replace(/\n/g, '\n> ')}\n>\n> — [${note.pageTitle}](${note.url})`;
+  let md = `> ${h.text.replace(/\n/g, '\n> ')}`;
+  if (h.comment) md += `\n>\n> *${h.comment.replace(/\n/g, ' ')}*`;
+  md += `\n>\n> — [${note.pageTitle}](${note.url})`;
   try {
     await navigator.clipboard.writeText(md);
     flashPageMetadata('Copied as markdown quote');
@@ -604,6 +697,44 @@ document.addEventListener('keydown', (e) => {
     closePageModal();
   }
 });
+
+// ---- Export wiring ----
+
+const pageNoteExporter = new PageNoteExporter();
+
+document.getElementById('exportPageMd')?.addEventListener('click', () => {
+  if (!currentPageNote) return;
+  const ids = getSelectedHighlightIds();
+  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  const fname = pageNoteExporter.sanitizeFilename(currentPageNote.pageTitle);
+  pageNoteExporter.downloadMarkdown(md, fname);
+});
+
+document.getElementById('copyPageMd')?.addEventListener('click', async () => {
+  if (!currentPageNote) return;
+  const ids = getSelectedHighlightIds();
+  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  try {
+    await pageNoteExporter.copyToClipboard(md);
+    flashPageMetadata('Copied to clipboard');
+  } catch (_) {
+    flashPageMetadata('Copy failed');
+  }
+});
+
+// Header export button: context-aware (Notes tab → manual notes; Pages tab → all page notes).
+exportAllMd.addEventListener('click', async () => {
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+  if (activeTab === 'pages') {
+    if (allPageNotes.length === 0) { alert('No page notes to export'); return; }
+    const md = pageNoteExporter.exportAllPageNotes(allPageNotes);
+    pageNoteExporter.downloadMarkdown(md, 'offline-notes-all-pages');
+  } else {
+    const notes = await storage.getAllNotes();
+    if (notes.length === 0) { alert('No notes to export'); return; }
+    markdown.downloadAllNotes(notes);
+  }
+}, { once: false });
 
 // Initial load (in addition to the lazy load on tab switch).
 loadPageNotes();

@@ -85,6 +85,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           id: crypto.randomUUID(),
           text: p.text || '',
           anchor: p.anchor || { exact: p.text || '', prefix: '', suffix: '' },
+          comment: p.comment || '',
           capturedAt: new Date().toISOString(),
         };
         const pageNote = await pageStorage.appendHighlight(p.url, p.pageTitle, highlight);
@@ -98,11 +99,45 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === 'UPDATE_HIGHLIGHT_COMMENT') {
+    (async () => {
+      try {
+        const ok = await pageStorage.updateHighlightComment(msg.pageNoteId, msg.highlightId, msg.comment);
+        sendResponse({ ok });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === 'GET_PAGE_NOTE') {
     (async () => {
       try {
         const note = await pageStorage.getByUrl(msg.url);
         sendResponse({ ok: true, pageNote: note });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.type === 'GET_PAGE_NOTE_WITH_SCROLL') {
+    (async () => {
+      try {
+        const note = await pageStorage.getByUrl(msg.url);
+        let pendingScroll = null;
+        const tabId = sender.tab?.id;
+        if (tabId) {
+          const sessionData = await chrome.storage.session.get('pendingScroll');
+          const ps = sessionData.pendingScroll;
+          if (ps && ps.tabId === tabId) {
+            pendingScroll = ps;
+            await chrome.storage.session.remove('pendingScroll');
+          }
+        }
+        sendResponse({ ok: true, pageNote: note, pendingScroll });
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
