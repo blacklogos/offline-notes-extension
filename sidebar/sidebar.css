@@ -346,6 +346,9 @@ body {
 }
 .btn svg { width: 14px; height: 14px; }
 
+.btn-sm { padding: var(--space-1) var(--space-3); font-size: var(--text-12); }
+.btn-sm svg { width: 12px; height: 12px; }
+
 .btn-primary {
   background: var(--sage-700);
   color: var(--paper-50);
@@ -475,58 +478,131 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--paper-200);
-  font-size: var(--text-12);
+  padding: var(--space-2) var(--space-4);
+  font-size: 11px;
+  color: var(--ink-700);
 }
 .page-source a {
   flex: 1;
-  color: var(--sage-700);
+  color: var(--ink-700);
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-feature-settings: "tnum";
 }
-.page-source a:hover { text-decoration: underline; }
-.page-source .icon-btn { width: 28px; height: 28px; }
-.page-source .icon-btn svg { width: 14px; height: 14px; }
+.page-source a:hover { text-decoration: underline; color: var(--sage-700); }
+.page-source .icon-btn { width: 24px; height: 24px; }
+.page-source .icon-btn svg { width: 12px; height: 12px; }
 
 .page-highlights {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 200px;
+  min-height: 120px;
 }
 
 .highlight-card {
+  display: flex;
+  gap: var(--space-2);
   background: var(--paper-100);
-  border-left: 3px solid var(--sage-500);
-  border-radius: var(--radius-sm);
+  border-radius: 10px;
   padding: var(--space-3) var(--space-4);
+  position: relative;
+}
+.highlight-body {
+  flex: 1;
+  min-width: 0;
+  border-left: 2px solid #D4B96A;
+  padding-left: var(--space-3);
+}
+.hl-check-label {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.hl-checkbox {
+  width: 14px; height: 14px;
+  accent-color: var(--sage-500);
+  cursor: pointer;
+  margin: 0;
 }
 .highlight-text {
-  font-size: var(--text-14);
-  line-height: var(--leading-normal);
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--ink-900);
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin-bottom: var(--space-2);
 }
 .highlight-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-12);
+  gap: 2px;
+  margin-top: var(--space-2);
+  font-size: 11px;
   color: var(--ink-700);
   font-feature-settings: "tnum";
 }
 .highlight-time { flex: 1; }
-.highlight-actions .icon-btn { width: 28px; height: 28px; }
-.highlight-actions .icon-btn svg { width: 14px; height: 14px; }
+.highlight-actions .icon-btn { width: 24px; height: 24px; }
+.highlight-actions .icon-btn svg { width: 12px; height: 12px; }
+
+.highlight-comment {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-900);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--paper-200);
+  cursor: pointer;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.highlight-comment.placeholder {
+  color: var(--warm-grey-500);
+  font-style: italic;
+  font-size: 11px;
+  border-top: none;
+  margin-top: var(--space-1);
+  padding-top: 0;
+}
+.comment-edit {
+  width: 100%;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-900);
+  background: var(--paper-50);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-sm);
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.comment-edit:focus { border-color: var(--sage-500); }
+.comment-counter {
+  font-size: 10px;
+  color: var(--warm-grey-500);
+  text-align: right;
+  margin-top: 2px;
+}
+
+.highlight-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: 11px;
+  color: var(--ink-700);
+  border-bottom: 1px solid var(--paper-200);
+}
+.highlight-toolbar label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-weight: var(--weight-semibold); }
+.highlight-toolbar .hl-checkbox { width: 13px; height: 13px; }
+.highlight-toolbar .spacer { flex: 1; }
 
 .page-metadata {
   font-size: var(--text-12);

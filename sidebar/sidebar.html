@@ -123,6 +123,16 @@
         <button id="copyPageUrl" class="icon-btn" title="Copy URL" data-icon="link"></button>
       </div>
 
+      <div class="highlight-toolbar">
+        <label><input type="checkbox" class="hl-checkbox" id="selectAllHighlights"> Select all</label>
+        <span class="spacer"></span>
+        <button id="exportPageMd" class="btn btn-secondary btn-sm" title="Export selected highlights as Markdown">
+          <span data-icon="copy"></span>Export MD
+        </button>
+        <button id="copyPageMd" class="btn btn-secondary btn-sm" title="Copy selected highlights as Markdown">
+          <span data-icon="copy"></span>Copy all
+        </button>
+      </div>
       <div id="pageHighlights" class="page-highlights"></div>
 
       <div class="modal-actions">
@@ -147,6 +157,7 @@
   <script src="../lib/markdown.js"></script>
   <script src="../lib/templates.js"></script>
   <script src="../lib/image-generator.js"></script>
+  <script src="../lib/page-note-export.js"></script>
   <script src="sidebar.js"></script>
 </body>
 </html>
