@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-04-15
+
+### Highlight capture
+
+Select text on any web page and save it into Offline Notes with one click. Each URL gets an auto-created "page note" that accumulates highlights over time. Returning to the page re-paints your saved highlights in place.
+
+**Capture triggers** (three ways to save):
+- Floating bubble — appears next to a selection; click to save.
+- Right-click menu — "Save highlight to Offline Notes" on any selected text.
+- Keyboard shortcut — `Alt+H` with text selected.
+
+**Re-paint on revisit**: previously-saved highlights from a page reappear as soft cream-yellow marks when you return. The match is best-effort: anchors that no longer resolve (page content changed) are skipped silently; the stored highlight remains visible in the sidebar.
+
+**Pages tab in the sidebar**: separate from manual notes. Lists page notes sorted by most-recently-highlighted. Click into a page note to see highlights with three per-highlight actions — copy as markdown quote, jump to the page (scrolls and flashes the mark), or delete.
+
+**Per-tab badge** on the toolbar icon shows the saved-highlight count for the current URL.
+
+### Visual refresh — warm paper / notebook identity
+
+Everything visible in the extension has been redesigned around a single aesthetic: cream paper backgrounds, warm-dark ink, a sage green accent, Inter Display typography, and line-drawn icons. Applied to popup, sidebar, in-page bubble, toolbar badge, image templates, and the toolbar icon itself.
+
+- **Popup and sidebar**: rewritten against new design tokens (`lib/tokens.css`). No IA changes — all existing flows, shortcuts, and data work identically.
+- **Toolbar icon**: small cream notebook with a sage spine, replacing the gradient placeholder.
+- **Image templates**: five fully-replaced warm-paper variants — `paper-default`, `paper-minimal`, `paper-quote`, `paper-card`, `paper-letterhead`. **Breaking change at the configuration level**: the old template names (`default`, `minimal`, `card`, `quote`, `modern`) no longer exist. Previously-exported images are not affected.
+- **Empty states**: hand-drawn sage line-art illustrations for empty Notes, empty Pages, and no-matching-search states.
+
+### New permissions
+
+The highlight feature requires:
+- `scripting`, `contextMenus` — Chrome APIs for content scripts and the right-click menu.
+- `host_permissions: ["<all_urls>"]` — required to re-paint saved highlights on page load (which runs before any user gesture). Chrome shows a "Read and change all your data on websites you visit" warning at install time. **The extension makes zero network requests**; this access is used only to read selections and inject highlight marks locally.
+
+### Fixes
+
+- `background.js` no longer calls `sidePanel.open()` from `onInstalled` — that path always failed ("may only be called in response to a user gesture"). The side panel now opens only from real user gestures (popup link, `Alt+Shift+N`).
+- `lib/image-generator.js`: templates now use block layout (not flex) to avoid html2canvas v1.4.1's known flex-centering issues. Added a null guard so an empty canvas surfaces a readable error instead of the cryptic `createObjectURL` overload failure.
+- Sidebar empty state correctly distinguishes "no notes yet" from "no search results" — previously both showed the same illustration.
+
 ## [1.0.3] - 2025-11-09
 
 ### 🐛 Bug Fix: html2canvas CSP Violation

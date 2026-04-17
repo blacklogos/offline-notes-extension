@@ -3,144 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Templates</title>
+  <title>Template Preview — paper-* family</title>
+  <link rel="stylesheet" href="lib/tokens.css">
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      padding: 20px;
-      background: #f0f0f0;
+      margin: 0;
+      padding: var(--space-6);
+      background: var(--paper-100);
+      color: var(--ink-900);
+      font-family: var(--font-sans);
+      font-size: var(--text-14);
     }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-    }
-    h1 { color: #667eea; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: var(--text-20); font-weight: var(--weight-bold); margin: 0 0 var(--space-2); }
+    .controls { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0; }
     button {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-      margin: 5px;
+      background: var(--sage-700); color: var(--paper-50);
+      border: none; padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      font: inherit; font-weight: var(--weight-semibold);
+      cursor: pointer; transition: background var(--motion-fast) var(--ease-out);
     }
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
+    button:hover { background: var(--ink-700); }
+    button.secondary { background: var(--paper-200); color: var(--ink-900); }
+    button.secondary:hover { background: var(--paper-300); }
     #preview {
-      margin-top: 20px;
-      border: 2px dashed #ddd;
-      padding: 20px;
+      margin-top: var(--space-4);
+      padding: var(--space-4);
+      background: var(--warm-grey-100);
+      border: 1px dashed var(--paper-300);
+      border-radius: var(--radius-md);
       overflow: auto;
-      background: #f9f9f9;
     }
+    .meta { color: var(--ink-700); font-size: var(--text-12); }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎨 Template Preview & Image Generator</h1>
-    <p>Test all 5 image templates before using in the extension.</p>
+    <h1>Template preview — paper-* family</h1>
+    <p class="meta">Click a template to render it with sample data. Generate to rasterize via html2canvas; download saves PNG.</p>
 
-    <div>
-      <button onclick="testTemplate('default')">Default Template</button>
-      <button onclick="testTemplate('minimal')">Minimal Template</button>
-      <button onclick="testTemplate('card')">Card Template</button>
-      <button onclick="testTemplate('quote')">Quote Template</button>
-      <button onclick="testTemplate('modern')">Modern Template</button>
-    </div>
+    <div class="controls" id="template-buttons"></div>
 
-    <div>
-      <button onclick="generateImage()" style="background: #28a745;">📸 Generate Image</button>
-      <button onclick="downloadImage()" style="background: #007bff;">💾 Download PNG</button>
+    <div class="controls">
+      <button onclick="generateImage()">Generate image (PNG)</button>
+      <button class="secondary" onclick="downloadImage()">Download PNG</button>
     </div>
 
     <div id="preview"></div>
   </div>
 
-  <!-- Load html2canvas locally -->
   <script src="lib/html2canvas.min.js"></script>
-
-  <!-- Load templates -->
   <script src="lib/templates.js"></script>
-
   <script>
     const templateManager = new TemplateManager();
-    let currentTemplate = 'default';
+    let currentTemplate = 'paper-default';
     let currentCanvas = null;
 
-    // Sample note data
     const sampleNote = {
-      title: "My Amazing Note",
-      content: "This is a test note with some content.\n\nIt supports multiple lines and will be truncated if too long. Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      tags: ["important", "work", "test"],
+      title: 'On finishing things',
+      content: 'A finished feature that ships beats a perfect feature that does not.\n\nThe goal is the work in front of you, not the architecture diagram of work that might one day exist.',
+      tags: ['craft', 'shipping', 'notes'],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    function testTemplate(templateName) {
-      currentTemplate = templateName;
-      const html = templateManager.getTemplate(templateName, sampleNote);
+    function renderTemplateButtons() {
+      const host = document.getElementById('template-buttons');
+      templateManager.getTemplateNames().forEach((name) => {
+        const btn = document.createElement('button');
+        btn.textContent = name;
+        btn.className = 'secondary';
+        btn.onclick = () => testTemplate(name);
+        host.appendChild(btn);
+      });
+    }
+
+    function testTemplate(name) {
+      currentTemplate = name;
+      const html = templateManager.getTemplate(name, sampleNote);
       document.getElementById('preview').innerHTML = html;
-      console.log('Template loaded:', templateName);
+      currentCanvas = null;
     }
 
     async function generateImage() {
-      const previewElement = document.getElementById('preview').firstElementChild;
-
-      if (!previewElement) {
-        alert('Please select a template first!');
-        return;
-      }
-
+      const previewElement = document.getElementById('preview').firstElementChild?.nextElementSibling
+        || document.getElementById('preview').firstElementChild;
+      // Skip the inlined <style> tag and render the actual template <div>.
+      const target = Array.from(document.getElementById('preview').children).find((el) => el.tagName === 'DIV');
+      if (!target) { alert('Pick a template first.'); return; }
       try {
-        console.log('Generating image...');
-        currentCanvas = await html2canvas(previewElement, {
-          backgroundColor: null,
-          scale: 2,
-          logging: false,
-          useCORS: true,
-          allowTaint: true
+        currentCanvas = await html2canvas(target, {
+          backgroundColor: null, scale: 2, logging: false, useCORS: true, allowTaint: true,
         });
-
-        // Show canvas preview
-        const canvasPreview = document.createElement('div');
-        canvasPreview.innerHTML = '<h3>Generated Image:</h3>';
-        canvasPreview.appendChild(currentCanvas);
-        document.getElementById('preview').appendChild(canvasPreview);
-
-        console.log('Image generated successfully!');
-      } catch (error) {
-        console.error('Error generating image:', error);
-        alert('Error: ' + error.message);
+        const wrap = document.createElement('div');
+        wrap.style.marginTop = 'var(--space-4)';
+        wrap.innerHTML = '<h3 style="font-size: var(--text-16); margin: 0 0 var(--space-2);">Rasterized output:</h3>';
+        currentCanvas.style.maxWidth = '100%';
+        wrap.appendChild(currentCanvas);
+        document.getElementById('preview').appendChild(wrap);
+      } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
       }
     }
 
     function downloadImage() {
-      if (!currentCanvas) {
-        alert('Please generate an image first!');
-        return;
-      }
-
-      currentCanvas.toBlob(blob => {
+      if (!currentCanvas) { alert('Generate an image first.'); return; }
+      currentCanvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = `note-${currentTemplate}-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
-        console.log('Image downloaded!');
       });
     }
 
-    // Load default template on page load
-    window.onload = () => {
-      testTemplate('default');
-    };
+    renderTemplateButtons();
+    testTemplate('paper-default');
   </script>
 </body>
 </html>

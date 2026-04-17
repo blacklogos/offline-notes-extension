@@ -1,3 +1,9 @@
+// Inject vendored Lucide icons into any [data-icon] placeholder.
+document.querySelectorAll('[data-icon]').forEach((el) => {
+  const name = el.dataset.icon;
+  if (Icons[name]) el.innerHTML = Icons[name];
+});
+
 // Initialize storage manager
 const storage = new StorageManager();
 

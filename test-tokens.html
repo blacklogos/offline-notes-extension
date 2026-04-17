@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Design Tokens — Visual Harness</title>
+  <link rel="stylesheet" href="lib/tokens.css">
+  <style>
+    body {
+      margin: 0;
+      padding: var(--space-6);
+      background: var(--paper-100);
+      color: var(--ink-900);
+      font-family: var(--font-sans);
+      font-size: var(--text-14);
+      line-height: var(--leading-normal);
+    }
+    h1 { font-size: var(--text-20); font-weight: var(--weight-bold); margin: 0 0 var(--space-2); }
+    h2 { font-size: var(--text-16); font-weight: var(--weight-semibold); margin: var(--space-6) 0 var(--space-3); color: var(--ink-700); }
+    section { margin-bottom: var(--space-6); }
+    .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-3); }
+    .swatch { padding: var(--space-3); border-radius: var(--radius-md); font-size: var(--text-12); font-feature-settings: "tnum"; }
+    .swatch .hex { display: block; opacity: 0.7; margin-top: var(--space-1); }
+    .ramp p { margin: 0 0 var(--space-3); }
+    .icons { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+    .icons figure { margin: 0; text-align: center; color: var(--sage-700); font-size: var(--text-12); }
+    .icons figcaption { margin-top: var(--space-1); color: var(--ink-700); }
+    .spacing-row { display: flex; align-items: end; gap: var(--space-2); margin-top: var(--space-3); }
+    .spacing-row .bar { background: var(--sage-500); width: 32px; }
+    .spacing-row figcaption { font-size: var(--text-12); color: var(--ink-700); margin-top: var(--space-1); text-align: center; font-feature-settings: "tnum"; }
+    .card { background: var(--paper-50); padding: var(--space-5); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); max-width: 400px; }
+    .card .title { font-size: var(--text-16); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
+    .card .meta { font-size: var(--text-12); color: var(--ink-700); font-feature-settings: "tnum"; }
+    .button { display: inline-block; background: var(--sage-700); color: var(--paper-50); padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); font-weight: var(--weight-semibold); border: none; cursor: pointer; transition: background var(--motion-fast) var(--ease-out); }
+    .button:hover { background: var(--ink-700); }
+    input { font: inherit; padding: var(--space-3); border: 1px solid var(--paper-300); border-radius: var(--radius-md); background: var(--paper-50); color: var(--ink-900); width: 100%; box-sizing: border-box; transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out); }
+    input:focus { outline: none; border-color: var(--sage-500); box-shadow: 0 0 0 3px rgba(124, 152, 133, 0.2); }
+  </style>
+</head>
+<body>
+  <h1>Warm-paper design tokens</h1>
+  <p style="color: var(--ink-700);">Visual harness for <code>lib/tokens.css</code>. Open in Chrome.</p>
+
+  <section>
+    <h2>Palette</h2>
+    <div class="swatches">
+      <div class="swatch" style="background: var(--paper-50); color: var(--ink-900); border: 1px solid var(--paper-300);">paper-50<span class="hex">#FAF7F2</span></div>
+      <div class="swatch" style="background: var(--paper-100); color: var(--ink-900);">paper-100<span class="hex">#F5F1EA</span></div>
+      <div class="swatch" style="background: var(--paper-200); color: var(--ink-900);">paper-200<span class="hex">#EAE4D8</span></div>
+      <div class="swatch" style="background: var(--paper-300); color: var(--ink-900);">paper-300<span class="hex">#D8D0BF</span></div>
+      <div class="swatch" style="background: var(--ink-700); color: var(--paper-50);">ink-700<span class="hex">#4A453E</span></div>
+      <div class="swatch" style="background: var(--ink-900); color: var(--paper-50);">ink-900<span class="hex">#2A2622</span></div>
+      <div class="swatch" style="background: var(--sage-300); color: var(--ink-900);">sage-300<span class="hex">#A8BBA8</span></div>
+      <div class="swatch" style="background: var(--sage-500); color: var(--paper-50);">sage-500<span class="hex">#7C9885</span></div>
+      <div class="swatch" style="background: var(--sage-700); color: var(--paper-50);">sage-700<span class="hex">#5F7A6A</span></div>
+      <div class="swatch" style="background: var(--warm-grey-100); color: var(--ink-900);">warm-grey-100<span class="hex">#EFEAE0</span></div>
+      <div class="swatch" style="background: var(--warm-grey-300); color: var(--ink-900);">warm-grey-300<span class="hex">#C7BFB0</span></div>
+      <div class="swatch" style="background: var(--mark-yellow); color: var(--ink-900);">mark-yellow<span class="hex">#F4E4A1</span></div>
+    </div>
+  </section>
+
+  <section class="ramp">
+    <h2>Type ramp (Inter Display)</h2>
+    <p style="font-size: var(--text-20); font-weight: var(--weight-bold);">20 px Bold — popup h1 only</p>
+    <p style="font-size: var(--text-16); font-weight: var(--weight-semibold);">16 px SemiBold — note title in lists</p>
+    <p style="font-size: var(--text-14); font-weight: var(--weight-regular);">14 px Regular — body copy, default everywhere else. The quick brown fox jumps over the lazy dog.</p>
+    <p style="font-size: var(--text-12); font-weight: var(--weight-regular); color: var(--ink-700); font-feature-settings: 'tnum';">12 px Regular tnum — metadata, timestamps 12:34:56, counts (3 highlights)</p>
+  </section>
+
+  <section>
+    <h2>Spacing scale (4 px grid)</h2>
+    <div class="spacing-row">
+      <figure><div class="bar" style="height: 4px;"></div><figcaption>1 / 4</figcaption></figure>
+      <figure><div class="bar" style="height: 8px;"></div><figcaption>2 / 8</figcaption></figure>
+      <figure><div class="bar" style="height: 12px;"></div><figcaption>3 / 12</figcaption></figure>
+      <figure><div class="bar" style="height: 16px;"></div><figcaption>4 / 16</figcaption></figure>
+      <figure><div class="bar" style="height: 24px;"></div><figcaption>5 / 24</figcaption></figure>
+      <figure><div class="bar" style="height: 32px;"></div><figcaption>6 / 32</figcaption></figure>
+      <figure><div class="bar" style="height: 48px;"></div><figcaption>7 / 48</figcaption></figure>
+      <figure><div class="bar" style="height: 64px;"></div><figcaption>8 / 64</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Icons (sage-700, 24 px)</h2>
+    <div class="icons" id="icons-host"></div>
+  </section>
+
+  <section>
+    <h2>Sample card on paper-50 with shadow-soft</h2>
+    <div class="card">
+      <div class="title">A sample note title</div>
+      <p>This is body copy at 14 px Regular. The card sits on paper-50 with the warm-tinted shadow-soft applied — barely lifted, no harsh black drop.</p>
+      <div class="meta">Updated Apr 15, 2026 · 3 tags</div>
+      <div style="margin-top: var(--space-4); display: flex; gap: var(--space-3);">
+        <button class="button">Save</button>
+        <input type="text" placeholder="Type to focus…" style="flex: 1;">
+      </div>
+    </div>
+  </section>
+
+  <script src="lib/icons.js"></script>
+  <script>
+    const host = document.getElementById('icons-host');
+    Object.entries(Icons).forEach(([name, svg]) => {
+      const fig = document.createElement('figure');
+      fig.innerHTML = `${svg}<figcaption>${name}</figcaption>`;
+      host.appendChild(fig);
+    });
+  </script>
+</body>
+</html>

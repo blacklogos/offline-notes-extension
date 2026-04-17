@@ -1,0 +1,22 @@
+/*
+ * Host-page styles for saved highlights. The bubble itself lives in Shadow DOM
+ * (styled inside content/highlight.js) so host page CSS can't influence it.
+ * The <mark> elements below live in the host page DOM — we accept that hostile
+ * pages may override the class. The yellow + semi-transparent fallback keeps
+ * highlights visually distinct even if the custom property is stripped.
+ */
+
+mark.offline-notes-highlight {
+  background-color: #F4E4A1;
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: box-shadow 1500ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 0 0 rgba(124, 152, 133, 0);
+}
+
+mark.offline-notes-highlight.offline-notes-flash {
+  box-shadow: 0 0 0 4px rgba(124, 152, 133, 0.6);
+}

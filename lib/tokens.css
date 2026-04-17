@@ -1,0 +1,93 @@
+/*
+ * Design tokens for Offline Notes — warm-paper visual identity.
+ * Single source of truth for palette, type, spacing, radii, shadow, motion.
+ *
+ * Two known duplications of these values:
+ *   - lib/templates.js (html2canvas renders templates in isolation; can't import this file)
+ *   - content/highlight.css (bubble lives in Shadow DOM; declares its own :host scope)
+ * Keep these in sync manually if values change.
+ */
+
+@font-face {
+  font-family: "Inter Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/Inter_Display/InterDisplay-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/Inter_Display/InterDisplay-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/Inter_Display/InterDisplay-Bold.woff2") format("woff2");
+}
+
+:root {
+  /* Palette — paper (cream backgrounds) */
+  --paper-50:  #FAF7F2;
+  --paper-100: #F5F1EA;
+  --paper-200: #EAE4D8;
+  --paper-300: #D8D0BF;
+
+  /* Palette — ink (warm-dark text) */
+  --ink-700: #4A453E;
+  --ink-900: #2A2622;
+
+  /* Palette — sage (single accent, two stops for contrast) */
+  --sage-300: #A8BBA8;  /* decorative lines, soft borders */
+  --sage-500: #7C9885;  /* buttons, focus rings, badge bg, icons (>=3px elements) */
+  --sage-700: #5F7A6A;  /* sage as text on paper (passes WCAG AA) */
+
+  /* Palette — warm greys (neutrals tinted toward the paper hue) */
+  --warm-grey-100: #EFEAE0;
+  --warm-grey-300: #C7BFB0;
+  --warm-grey-500: #8A8275;
+
+  /* Palette — special */
+  --mark-yellow: #F4E4A1;  /* highlight <mark> background, "highlighter on aged paper" */
+
+  /* Type */
+  --font-sans: "Inter Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --text-12: 12px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --leading-tight:  1.3;
+  --leading-snug:   1.4;
+  --leading-normal: 1.5;
+  --weight-regular:  400;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* Spacing — 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radii — small only, "paper edges" not "iOS card" */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  /* Shadow — warm-tinted, single soft layer */
+  --shadow-soft: 0 2px 12px rgba(42, 38, 34, 0.08);
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-slow: 1500ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

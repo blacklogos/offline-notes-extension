@@ -10,6 +10,7 @@ A powerful, privacy-focused Chrome extension for taking notes offline. All data 
 - ✍️ **Quick Note Taking** - Fast popup interface for capturing ideas
 - 📚 **Full Note Management** - Comprehensive sidebar for organizing notes
 - 🏷️ **Tags & Search** - Organize with tags and powerful search
+- ✨ **Highlight Capture** - Select text on any page, save it with one click. Highlights re-paint on revisit and collect into a per-URL "page note."
 - 💾 **100% Offline** - All data stored locally using Chrome Storage API
 - 🔒 **Privacy First** - No data leaves your computer
 
@@ -18,12 +19,12 @@ A powerful, privacy-focused Chrome extension for taking notes offline. All data 
 - 🎨 **Image Generation** - Create beautiful images from notes using **5 customizable templates**
 - 📋 **Copy to Clipboard** - Quick copy of notes in Markdown format
 
-### Image Templates
-1. **Default** - Gradient background with modern card design
-2. **Minimal** - Clean, typography-focused layout
-3. **Card** - Compact card with colorful accent
-4. **Quote** - Perfect for inspirational quotes
-5. **Modern** - Dark theme with gradient header
+### Image Templates (warm-paper family)
+1. **Paper · Default** - Centered headline on cream paper with sage divider
+2. **Paper · Minimal** - Hard left-aligned, pure typography
+3. **Paper · Quote** - Square, centered quote with sage accent
+4. **Paper · Card** - Inner paper card framed on the outer sheet
+5. **Paper · Letterhead** - Notebook glyph + brand mark + dated footer
 
 ## 🧪 Testing & Quality Assurance
 
@@ -89,6 +90,7 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 |--------|----------|
 | Quick Note | `Alt+N` |
 | Open Sidebar | `Alt+Shift+N` |
+| Save Highlight (with text selected) | `Alt+H` |
 | Save Note | `Ctrl/Cmd+S` |
 | Search | `Ctrl/Cmd+F` |
 | Close Modal | `Esc` |
@@ -140,11 +142,17 @@ offline-notes-extension/
 - **Vanilla JavaScript** - No heavy frameworks
 
 ### Data Storage
-- All notes stored in `chrome.storage.local`
-- Storage key: `offline_notes`
-- Settings key: `offline_notes_settings`
+- All data stored in `chrome.storage.local` — no cloud, no sync, no network calls
+- Storage keys:
+  - `offline_notes` — manual notes created via popup/sidebar
+  - `offline_page_notes` — auto-created page notes keyed by canonical URL; each contains captured highlights
+  - `offline_notes_settings` — UI preferences (active sidebar tab, etc.)
 - No size limits (Chrome allows ~10MB+ for local storage)
 - Automatic backup/restore via export feature
+
+### Permissions
+- `storage`, `sidePanel`, `tabs` — core functionality
+- `scripting`, `contextMenus`, `host_permissions: <all_urls>` — required for the highlight capture feature (injects a content script on web pages and re-paints saved highlights on revisit). The extension makes zero network requests; host access is used only for local DOM operations.
 
 ## 🎯 Reused Components from Save.day Extension
 
