@@ -42,9 +42,17 @@ loadNotes();
 // Load all notes
 async function loadNotes() {
   allNotes = await storage.getAllNotes();
-  filteredNotes = allNotes;
-  renderNotes();
+  await applyFilters();
   renderTags();
+}
+
+// Single filter path. Query and tag always intersect, and a background storage
+// refresh re-applies both instead of silently resetting the list to everything.
+async function applyFilters() {
+  const query = searchInput.value.trim();
+  const base = query ? await storage.searchNotes(query) : allNotes;
+  filteredNotes = selectedTag ? base.filter(note => note.tags.includes(selectedTag)) : base;
+  renderNotes();
 }
 
 // Render notes list
@@ -152,32 +160,12 @@ async function renderTags() {
 // Filter notes by tag
 async function filterByTag(tag) {
   selectedTag = tag;
-
-  if (tag === null) {
-    filteredNotes = allNotes;
-  } else {
-    filteredNotes = await storage.getNotesByTag(tag);
-  }
-
-  renderNotes();
+  await applyFilters();
   renderTags();
 }
 
 // Search notes
-searchInput.addEventListener('input', async (e) => {
-  const query = e.target.value.trim();
-
-  if (query === '') {
-    filteredNotes = selectedTag ? await storage.getNotesByTag(selectedTag) : allNotes;
-  } else {
-    const results = await storage.searchNotes(query);
-    filteredNotes = selectedTag
-      ? results.filter(note => note.tags.includes(selectedTag))
-      : results;
-  }
-
-  renderNotes();
-});
+searchInput.addEventListener('input', () => { applyFilters(); });
 
 // Open note modal
 function openNoteModal(note) {
@@ -326,8 +314,9 @@ document.addEventListener('keydown', (e) => {
     saveNote.click();
   }
 
-  // Ctrl/Cmd + F to focus search
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+  // Ctrl/Cmd + F to focus search, but only when the search field is actually
+  // visible. On the Pages tab it is hidden, so let the browser keep its find.
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && searchInput.offsetParent !== null) {
     e.preventDefault();
     searchInput.focus();
   }
