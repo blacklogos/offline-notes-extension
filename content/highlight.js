@@ -88,6 +88,7 @@
 
   function show(rect) {
     ensureBubble();
+    saveCtx = null; // new selection: never reuse the previous capture's context
     pos(rect);
     wrap.classList.add('on');
     const lbl = root.getElementById('lbl');
@@ -132,9 +133,11 @@
 
     const done = async () => {
       const txt = ta.value.trim().slice(0, 280);
+      // cleanup() nulls saveCtx, so read it first or the comment never reaches storage.
+      const ctx = saveCtx;
       cleanup();
-      if (txt && saveCtx) {
-        try { await send({ type: 'UPDATE_HIGHLIGHT_COMMENT', pageNoteId: saveCtx.pn, highlightId: saveCtx.hl, comment: txt }); } catch (_) {}
+      if (txt && ctx) {
+        try { await send({ type: 'UPDATE_HIGHLIGHT_COMMENT', pageNoteId: ctx.pn, highlightId: ctx.hl, comment: txt }); } catch (_) {}
       }
       hide();
     };
@@ -183,7 +186,21 @@
     return (s && !s.isCollapsed && s.rangeCount > 0) ? s.getRangeAt(0) : null;
   }
 
+  let capturing = false;
+
   async function doCapture(withComment) {
+    if (capturing) return;
+    // Already saved this selection: annotate the existing highlight instead of appending a second one.
+    if (withComment && saveCtx) { openComment(); return; }
+    capturing = true;
+    try {
+      await runCapture(withComment);
+    } finally {
+      capturing = false;
+    }
+  }
+
+  async function runCapture(withComment) {
     const range = getRange();
     let payload;
     if (range) {

@@ -7,6 +7,10 @@ document.querySelectorAll('[data-icon]').forEach((el) => {
 // Initialize storage manager
 const storage = new StorageManager();
 
+// Pending autosave timer. Declared up here because the save and clear paths both
+// cancel it before removing the draft.
+let autoSaveTimeout;
+
 // DOM elements
 const noteForm = document.getElementById('noteForm');
 const noteTitle = document.getElementById('noteTitle');
@@ -62,6 +66,8 @@ noteForm.addEventListener('submit', async (e) => {
     }, 2000);
 
     // Clear form
+    clearTimeout(autoSaveTimeout);
+    await chrome.storage.local.remove('draft_note');
     noteTitle.value = '';
     noteContent.value = '';
     tagInput.value = '';
@@ -76,6 +82,8 @@ noteForm.addEventListener('submit', async (e) => {
 
 // Clear button
 clearBtn.addEventListener('click', () => {
+  clearTimeout(autoSaveTimeout);
+  chrome.storage.local.remove('draft_note');
   noteTitle.value = '';
   noteContent.value = '';
   tagInput.value = '';
@@ -115,7 +123,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Auto-save to prevent data loss (save to temporary storage)
-let autoSaveTimeout;
 const autoSave = () => {
   clearTimeout(autoSaveTimeout);
   autoSaveTimeout = setTimeout(() => {
@@ -149,7 +156,3 @@ chrome.storage.local.get('draft_note', (result) => {
   }
 });
 
-// Clear draft when note is saved
-noteForm.addEventListener('submit', () => {
-  chrome.storage.local.remove('draft_note');
-});

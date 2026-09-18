@@ -191,12 +191,23 @@ function openNoteModal(note) {
 }
 
 // Close modal
-function closeNoteModal() {
+// `force` skips the dirty check; used by the save and delete paths, which have
+// already persisted (or discarded) the edits on purpose.
+function isNoteDirty() {
+  if (!currentNote) return false;
+  return modalTitle.value !== currentNote.title
+    || modalContent.value !== currentNote.content
+    || modalTags.value !== currentNote.tags.join(', ');
+}
+
+function closeNoteModal(force) {
+  if (!force && isNoteDirty() && !confirm('Discard unsaved changes to this note?')) return;
   noteModal.classList.add('hidden');
   currentNote = null;
 }
 
-closeModal.addEventListener('click', closeNoteModal);
+// Wrapped: a bare listener would pass the click Event as `force` and skip the check.
+closeModal.addEventListener('click', () => closeNoteModal());
 
 // Click outside modal to close
 noteModal.addEventListener('click', (e) => {
@@ -221,7 +232,7 @@ saveNote.addEventListener('click', async () => {
       tags
     });
 
-    closeNoteModal();
+    closeNoteModal(true);
     await loadNotes();
   } catch (error) {
     alert('Error saving note: ' + error.message);
@@ -235,7 +246,7 @@ deleteNote.addEventListener('click', async () => {
   if (confirm('Are you sure you want to delete this note?')) {
     try {
       await storage.deleteNote(currentNote.id);
-      closeNoteModal();
+      closeNoteModal(true);
       await loadNotes();
     } catch (error) {
       alert('Error deleting note: ' + error.message);
@@ -353,6 +364,11 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.offline_page_notes) {
     loadPageNotes().then(() => {
       if (currentPageNote && !pageModal.classList.contains('hidden')) {
+        // Don't rebuild the modal out from under an open comment editor or a
+        // checkbox selection; the user would lose both without warning.
+        const busy = pageHighlightsHost.querySelector('textarea.comment-edit')
+          || pageHighlightsHost.querySelector('.hl-checkbox:checked');
+        if (busy) return;
         pageStorage.getById(currentPageNote.id).then((fresh) => {
           if (fresh) { currentPageNote = fresh; openPageModal(fresh); }
         });
