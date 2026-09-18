@@ -30,8 +30,18 @@ async function updateNoteCount() {
 // Initialize
 updateNoteCount();
 
-// Auto-focus title field
-noteTitle.focus();
+// Auto-focus the body: capture starts with the thought, not the filing.
+noteContent.focus();
+
+
+// A blank title used to save as "Untitled", making every body-only note
+// indistinguishable in the list. Fall back to the first meaningful line instead.
+function deriveTitle(content) {
+  const line = content.split('\n').map(l => l.trim()).find(Boolean) || '';
+  const clean = line.replace(/^#{1,6}\s*/, '').replace(/^[-*+]\s+/, '').trim();
+  if (!clean) return 'Untitled';
+  return clean.length > 60 ? clean.slice(0, 60).trimEnd() + '…' : clean;
+}
 
 // Handle form submission
 noteForm.addEventListener('submit', async (e) => {
@@ -41,7 +51,7 @@ noteForm.addEventListener('submit', async (e) => {
   const content = noteContent.value.trim();
 
   if (!title && !content) {
-    noteTitle.focus();
+    noteContent.focus();
     return;
   }
 
@@ -54,7 +64,7 @@ noteForm.addEventListener('submit', async (e) => {
   try {
     // Save note
     await storage.saveNote({
-      title: title || 'Untitled',
+      title: title || deriveTitle(content),
       content,
       tags
     });
@@ -71,7 +81,7 @@ noteForm.addEventListener('submit', async (e) => {
     noteTitle.value = '';
     noteContent.value = '';
     tagInput.value = '';
-    noteTitle.focus();
+    noteContent.focus();
 
     // Update count
     updateNoteCount();
@@ -87,7 +97,7 @@ clearBtn.addEventListener('click', () => {
   noteTitle.value = '';
   noteContent.value = '';
   tagInput.value = '';
-  noteTitle.focus();
+  noteContent.focus();
 });
 
 // Open sidebar

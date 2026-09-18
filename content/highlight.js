@@ -21,7 +21,7 @@
   // ---- Bubble ----
 
   let host = null, root = null, wrap = null;
-  let hideT = null, lastText = '', saveCtx = null, commenting = false;
+  let hideT = null, lastText = '', saveCtx = null, commenting = false, lastRect = null;
 
   function ensureBubble() {
     if (host && document.body.contains(host)) return;
@@ -33,32 +33,32 @@
       <style>
         :host{all:initial}
         *{box-sizing:border-box}
-        .w{position:fixed;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity 100ms ease-out,transform 100ms ease-out}
+        .w{position:fixed;width:max-content;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity 100ms ease-out,transform 100ms ease-out;background:#FAF7F2;border:1px solid #D8D0BF;border-radius:10px;box-shadow:0 2px 10px rgba(42,38,34,.12);overflow:hidden}
         .w.on{opacity:1;transform:translateY(0);pointer-events:auto}
-        .bar{display:inline-flex;align-items:center;background:#FAF7F2;border:1px solid #D8D0BF;border-radius:8px;box-shadow:0 2px 10px rgba(42,38,34,.12);overflow:hidden}
-        .b{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:none;background:transparent;font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;cursor:pointer;white-space:nowrap}
+        .bar{display:flex;align-items:stretch;background:transparent}
+        .b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:7px 12px;border:none;background:transparent;font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;cursor:pointer;white-space:nowrap}
         .b:hover{background:#EAE4D8}
-        .b .i{display:inline-flex;width:14px;height:14px;color:#7C9885}
+        .b .i{display:inline-flex;width:16px;height:16px;color:#7C9885}
         .b .i svg{width:100%;height:100%}
         .b.ok{color:#5F7A6A}
         .b.ok .i{color:#5F7A6A}
         .b.err{color:#8A4A3E}
-        .sep{width:1px;height:18px;background:#D8D0BF;flex-shrink:0}
-        .cm{display:none;padding:6px 8px 8px;border-top:1px solid #EAE4D8}
+        .sep{width:1px;background:#D8D0BF;flex-shrink:0;margin:6px 0}
+        .cm{display:none;padding:8px 10px 10px;border-top:1px solid #EAE4D8}
         .cm.on{display:block}
-        .ta{width:200px;max-height:60px;padding:4px 6px;font:400 11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;background:#F5F1EA;border:1px solid #D8D0BF;border-radius:5px;resize:none;outline:none}
+        .ta{display:block;width:240px;min-height:48px;max-height:80px;padding:6px 8px;font:400 13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;background:#F5F1EA;border:1px solid #D8D0BF;border-radius:6px;resize:none;outline:none}
         .ta:focus{border-color:#7C9885}
         .ta::placeholder{color:#A09888}
-        .ht{margin-top:3px;font:400 9px/1 -apple-system,sans-serif;color:#A09888;text-align:right}
+        .ht{margin-top:5px;font:400 11px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#A09888;text-align:right}
       </style>
       <div class="w">
         <div class="bar">
           <button class="b" id="saveBtn"><span class="i" id="ico"></span><span id="lbl">Save</span></button>
           <span class="sep"></span>
-          <button class="b" id="noteBtn"><span class="i" id="ico2"></span></button>
+          <button class="b" id="noteBtn" title="Save and add a note" aria-label="Save and add a note"><span class="i" id="ico2"></span></button>
         </div>
         <div class="cm" id="cm">
-          <textarea class="ta" id="ta" rows="2" maxlength="280" placeholder="Add a note…"></textarea>
+          <textarea class="ta" id="ta" rows="2" maxlength="280" aria-label="Note for this highlight" placeholder="Add a note…"></textarea>
           <div class="ht">Enter ↵ save · Esc cancel · <span id="cc">280</span></div>
         </div>
       </div>`;
@@ -75,20 +75,34 @@
     noteBtn.addEventListener('click', e => { e.preventDefault(); doCapture(true); });
   }
 
+  const EDGE = 6;
+
+  // wrap is position:fixed → coords are viewport-relative, same as getBoundingClientRect.
+  // Measure the real bubble rather than assuming the collapsed pill's size: it grows
+  // when the comment panel opens, and the old fixed offsets pushed it offscreen.
   function pos(rect) {
     ensureBubble();
-    // wrap is position:fixed → coords are viewport-relative, same as getBoundingClientRect
-    let t = rect.top - 40;
-    let l = rect.left + rect.width / 2 - 60;
-    if (rect.top < 44) t = rect.bottom + 6;
-    l = Math.max(4, Math.min(l, window.innerWidth - 140));
+    const b = wrap.getBoundingClientRect();
+    const w = b.width || 140;
+    const h = b.height || 34;
+    let t = rect.top - h - EDGE;
+    if (t < EDGE) t = rect.bottom + EDGE; // no room above: flip below the selection
+    t = Math.max(EDGE, Math.min(t, window.innerHeight - h - EDGE));
+    let l = rect.left + rect.width / 2 - w / 2;
+    l = Math.max(EDGE, Math.min(l, window.innerWidth - w - EDGE));
     wrap.style.top = t + 'px';
     wrap.style.left = l + 'px';
+  }
+
+  // Re-anchor against the selection the bubble was opened for, after its size changes.
+  function reposition() {
+    if (lastRect) pos(lastRect);
   }
 
   function show(rect) {
     ensureBubble();
     saveCtx = null; // new selection: never reuse the previous capture's context
+    lastRect = rect;
     pos(rect);
     wrap.classList.add('on');
     const lbl = root.getElementById('lbl');
@@ -129,6 +143,7 @@
     cm.classList.add('on');
     ta.value = '';
     cc.textContent = '280';
+    reposition(); // the bubble just got taller; keep it against the selection and onscreen
     setTimeout(() => ta.focus(), 50);
 
     const done = async () => {

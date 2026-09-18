@@ -18,14 +18,6 @@
     </header>
 
     <form id="noteForm">
-      <input
-        type="text"
-        id="noteTitle"
-        placeholder="Title…"
-        autocomplete="off"
-        maxlength="100"
-      >
-
       <textarea
         id="noteContent"
         placeholder="Write your note here…&#10;Supports markdown — **bold** *italic* `code`"
@@ -33,11 +25,19 @@
         autocomplete="off"
       ></textarea>
 
+      <input
+        type="text"
+        id="noteTitle"
+        placeholder="Title (optional) — taken from the first line if left blank"
+        autocomplete="off"
+        maxlength="100"
+      >
+
       <div class="tags-input">
         <input
           type="text"
           id="tagInput"
-          placeholder="Add tags (comma separated)…"
+          placeholder="Tags (optional), comma separated…"
           autocomplete="off"
         >
       </div>

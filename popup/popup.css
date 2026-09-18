@@ -12,7 +12,7 @@ body {
   line-height: var(--leading-normal);
 }
 
-.container { padding: var(--space-5); }
+.container { padding: var(--space-4); }
 
 .header {
   display: flex;
@@ -87,11 +87,13 @@ textarea::placeholder {
   color: var(--warm-grey-500);
 }
 
+/* Title sits below the body now and is optional, so it no longer carries the
+   visual weight of a primary field. */
 #noteTitle {
-  font-size: var(--text-16);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-14);
+  font-weight: var(--weight-regular);
 }
-#noteTitle::placeholder { font-weight: var(--weight-regular); }
+#noteTitle::placeholder { font-size: var(--text-12); color: var(--warm-grey-500); }
 
 textarea {
   resize: vertical;
