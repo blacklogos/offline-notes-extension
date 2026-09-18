@@ -236,15 +236,14 @@ The `StorageManager` class in `/lib/storage.js` provides:
 - `getAllNotes()` - Get all notes
 - `searchNotes(query)` - Search notes
 - `getNotesByTag(tag)` - Filter by tag
-- `exportAllData()` - Backup data
+- `exportAllData()` - Backup data (manual notes, page notes and settings)
 - `importData(data)` - Restore data
 
 ## 🐛 Troubleshooting
 
 ### Images not generating?
 - Make sure html2canvas is loaded (check browser console)
-- The extension loads it from CDN - internet needed for first load only
-- Alternatively, extract from Save.day extension's `index.js`
+- It is vendored locally at `lib/html2canvas.min.js`; nothing is fetched from a CDN and no internet connection is needed
 
 ### Notes not saving?
 - Check Chrome Developer Tools console for errors
