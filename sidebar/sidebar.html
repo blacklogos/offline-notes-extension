@@ -14,31 +14,25 @@
         <span class="brand-glyph" data-icon="notebook"></span>
         My Notes
       </h1>
+      <nav class="tab-strip" role="tablist" aria-label="Note type">
+        <button class="tab-btn active" role="tab" data-tab="notes" aria-selected="true">Notes</button>
+        <button class="tab-btn" role="tab" data-tab="pages" aria-selected="false">Pages</button>
+      </nav>
       <div class="header-actions">
         <button id="exportAllMd" class="icon-btn" title="Export all notes to Markdown" data-icon="copy"></button>
       </div>
     </header>
 
-    <nav class="tab-strip" role="tablist">
-      <button class="tab-btn active" role="tab" data-tab="notes" aria-selected="true">Notes</button>
-      <button class="tab-btn" role="tab" data-tab="pages" aria-selected="false">Pages</button>
-    </nav>
-
-    <div id="vaultBar" class="vault-bar hidden">
-      <span class="vault-icon" data-icon="notebook"></span>
-      <span id="vaultStatus" class="vault-status">Not connected</span>
-      <button id="vaultAction" class="btn btn-secondary btn-sm">Choose folder</button>
-      <button id="vaultForget" class="btn-link hidden" title="Stop writing to this folder">Forget</button>
-    </div>
-
     <!-- Notes tab panel -->
     <section class="tab-panel active" data-panel="notes" role="tabpanel">
       <div class="search-bar">
         <span class="search-icon" data-icon="search"></span>
-        <input type="text" id="searchInput" placeholder="Search notes…">
+        <input type="text" id="searchInput" placeholder="Search notes…" aria-label="Search notes">
+        <details id="tagMenu" class="tag-menu hidden">
+          <summary><span id="tagSummary">Tags</span><span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span></summary>
+          <div id="tagFilter" class="tag-filter hidden" role="group" aria-label="Filter by tag"></div>
+        </details>
       </div>
-
-      <div id="tagFilter" class="tag-filter hidden"></div>
 
       <div id="notesList" class="notes-list"></div>
 
@@ -65,6 +59,18 @@
         <p>Select text on any page, then click the <strong>Save</strong> bubble or press <kbd>Alt+H</kbd>.</p>
       </div>
     </section>
+    <details id="vaultBar" class="vault-bar hidden">
+      <summary>
+        <span class="vault-icon" data-icon="notebook" aria-hidden="true"></span>
+        <span id="vaultStatus" class="vault-status" role="status">Not connected</span>
+        <span class="vault-label">Vault</span>
+        <span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span>
+      </summary>
+      <div class="vault-controls">
+        <button id="vaultAction" class="btn btn-secondary btn-sm">Choose folder</button>
+        <button id="vaultForget" class="btn-link hidden" title="Stop writing to this folder">Forget</button>
+      </div>
+    </details>
   </div>
 
   <!-- Note edit modal -->

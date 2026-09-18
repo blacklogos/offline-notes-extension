@@ -21,6 +21,8 @@ let currentPageNote = null;
 // DOM elements
 const searchInput = document.getElementById('searchInput');
 const tagFilter = document.getElementById('tagFilter');
+const tagMenu = document.getElementById('tagMenu');
+const tagSummary = document.getElementById('tagSummary');
 const notesList = document.getElementById('notesList');
 const emptyState = document.getElementById('emptyState');
 const noteModal = document.getElementById('noteModal');
@@ -106,7 +108,7 @@ function createNoteCard(note) {
 
   const content = document.createElement('div');
   content.className = 'note-card-content';
-  content.textContent = note.content.substring(0, 150) + (note.content.length > 150 ? '...' : '');
+  content.textContent = notePreview(note.content, note.title);
 
   card.appendChild(header);
   card.appendChild(content);
@@ -128,12 +130,42 @@ function createNoteCard(note) {
   return card;
 }
 
+// Display-only text. Stored Markdown stays intact for editing and export.
+function notePreview(content, title) {
+  const plainText = (text) => text
+    .replace(/^\s*\[[^\]]+\]:\s+\S+.*$/gm, '')
+    .replace(/^\s*(?:`{3,}|~{3,}).*$/gm, '')
+    .replace(/!?\[([^\]]*)\]\((?:[^()\n]|\([^()\n]*\))*\)/g, '$1')
+    .replace(/!?\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .replace(/<(https?:\/\/[^>]+)>/g, '$1')
+    .replace(/<\/?[a-z][^>\n]*>/gi, '')
+    .replace(/^\s*(?:>\s*)+/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$/gm, '$1')
+    .replace(/^\s*(?:[-*_]\s*){3,}$/gm, '')
+    .replace(/^\s*=+\s*$/gm, '')
+    .replace(/^\s*(?:[-+*]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/gm, '')
+    .replace(/(`+)(.*?)\1/g, '$2')
+    .replace(/(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/(^|\W)_([^_\n]+)_(?=\W|$)/g, '$1$2')
+    .replace(/\\([\\`*_{}\[\]()#+.!>~-])/g, '$1');
+  const lines = plainText(content || '').split('\n').map(line => line.trim()).filter(Boolean);
+  const normalize = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (lines.length && normalize(lines[0]) === normalize(plainText(title || ''))) lines.shift();
+  const preview = lines.join(' ').replace(/\s+/g, ' ').trim();
+  return preview.length > 160 ? preview.slice(0, 160).trimEnd() + '…' : preview;
+}
+
 // Render tag filter
 async function renderTags() {
   const tags = await storage.getAllTags();
+  tagSummary.textContent = selectedTag ? '#' + selectedTag : 'Tags';
+  tagMenu.classList.toggle('is-filtered', selectedTag !== null);
+  tagMenu.classList.toggle('hidden', tags.length === 0 && selectedTag === null);
 
-  if (tags.length === 0) {
+  if (tags.length === 0 && selectedTag === null) {
     tagFilter.classList.add('hidden');
+    tagMenu.open = false;
     return;
   }
 
@@ -141,7 +173,9 @@ async function renderTags() {
   tagFilter.innerHTML = '';
 
   // All notes chip
-  const allChip = document.createElement('div');
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.setAttribute('aria-pressed', selectedTag === null);
   allChip.className = 'tag-chip' + (selectedTag === null ? ' active' : '');
   allChip.textContent = 'All';
   allChip.onclick = () => filterByTag(null);
@@ -149,7 +183,9 @@ async function renderTags() {
 
   // Tag chips
   tags.forEach(tag => {
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.setAttribute('aria-pressed', selectedTag === tag);
     chip.className = 'tag-chip' + (selectedTag === tag ? ' active' : '');
     chip.textContent = '#' + tag;
     chip.onclick = () => filterByTag(tag);
@@ -160,12 +196,28 @@ async function renderTags() {
 // Filter notes by tag
 async function filterByTag(tag) {
   selectedTag = tag;
+  tagMenu.open = false;
+  tagMenu.querySelector('summary').focus();
   await applyFilters();
   renderTags();
 }
 
 // Search notes
 searchInput.addEventListener('input', () => { applyFilters(); });
+
+// Native disclosures stay keyboard-accessible and close without covering the list.
+document.addEventListener('click', (event) => {
+  document.querySelectorAll('.tag-menu[open], .vault-bar[open]').forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('.tag-menu[open], .vault-bar[open]').forEach((menu) => {
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
+});
 
 // Open note modal
 function openNoteModal(note) {

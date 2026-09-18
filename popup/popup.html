@@ -20,29 +20,36 @@
     <form id="noteForm">
       <textarea
         id="noteContent"
-        placeholder="Write your note here…&#10;Supports markdown — **bold** *italic* `code`"
-        rows="8"
+        placeholder="Write a note…"
+        aria-label="Note content"
+        aria-describedby="formatHint"
+        rows="7"
         autocomplete="off"
       ></textarea>
 
-      <input
-        type="text"
-        id="noteTitle"
-        placeholder="Title (optional) — taken from the first line if left blank"
-        autocomplete="off"
-        maxlength="100"
-      >
+      <div class="note-options">
+        <label for="noteTitle">Title</label>
+        <input
+          type="text"
+          id="noteTitle"
+          placeholder="From first line"
+          aria-label="Title (optional)"
+          autocomplete="off"
+          maxlength="100"
+        >
 
-      <div class="tags-input">
+        <label for="tagInput">Tags</label>
         <input
           type="text"
           id="tagInput"
-          placeholder="Tags (optional), comma separated…"
+          placeholder="Add tags, comma separated"
+          aria-label="Tags (optional, comma separated)"
           autocomplete="off"
         >
       </div>
 
       <div class="button-group">
+        <span id="formatHint" class="format-hint">Markdown supported</span>
         <button type="submit" class="btn btn-primary">
           <span data-icon="check"></span>
           Save note
@@ -51,15 +58,14 @@
       </div>
     </form>
 
-    <div id="successMessage" class="success-message hidden">
-      <span data-icon="check"></span>
-      Saved
-    </div>
-
     <footer class="footer">
       <span id="noteCount">0 notes</span>
       <span class="separator">·</span>
       <span>Stored locally</span>
+      <span id="successMessage" class="success-message hidden" role="status">
+        <span data-icon="check"></span>
+        Saved
+      </span>
     </footer>
   </div>
 
