@@ -743,3 +743,103 @@ exportAllMd.addEventListener('click', async () => {
 
 // Initial load (in addition to the lazy load on tab switch).
 loadPageNotes();
+
+// ---- Vault: mirror captures into a folder on disk ----
+//
+// All writing happens here in the sidebar rather than in the service worker,
+// because showDirectoryPicker and permission prompts need a document and a user
+// gesture. Highlights captured while the sidebar is closed are mirrored the
+// next time it opens, which is what the catch-up call below is for.
+
+const vault = new VaultWriter();
+const vaultBar = document.getElementById('vaultBar');
+const vaultStatusEl = document.getElementById('vaultStatus');
+const vaultActionBtn = document.getElementById('vaultAction');
+const vaultForgetBtn = document.getElementById('vaultForget');
+
+let vaultMirrorQueued = false;
+
+function setVaultStatus(text, kind) {
+  vaultStatusEl.textContent = text;
+  vaultStatusEl.classList.toggle('is-connected', kind === 'connected');
+  vaultStatusEl.classList.toggle('is-error', kind === 'error');
+}
+
+async function renderVaultBar() {
+  if (!vault.isSupported()) { vaultBar.classList.add('hidden'); return; }
+  vaultBar.classList.remove('hidden');
+  const { state, name } = await vault.status();
+  if (state === 'granted') {
+    setVaultStatus(`Saving to ${name}`, 'connected');
+    vaultActionBtn.textContent = 'Sync now';
+    vaultForgetBtn.classList.remove('hidden');
+  } else if (state === 'prompt') {
+    setVaultStatus(`${name} needs permission again`, 'error');
+    vaultActionBtn.textContent = 'Reconnect';
+    vaultForgetBtn.classList.remove('hidden');
+  } else {
+    setVaultStatus('Not saving to disk', null);
+    vaultActionBtn.textContent = 'Choose folder';
+    vaultForgetBtn.classList.add('hidden');
+  }
+}
+
+// Write every note and page note. Failures are surfaced, not swallowed: a
+// capture the user believes is on disk had better be on disk.
+async function mirrorVault() {
+  if (!vault.isSupported()) return;
+  const { state } = await vault.status();
+  if (state !== 'granted') return;
+  try {
+    const res = await vault.mirrorAll(allNotes, allPageNotes, markdown, pageNoteExporter);
+    if (res.errors.length) {
+      setVaultStatus(`${res.errors.length} file(s) failed to write`, 'error');
+      console.error('Vault write errors:', res.errors);
+    } else {
+      setVaultStatus(`Saved ${res.notes + res.pageNotes} file(s) to disk`, 'connected');
+      setTimeout(renderVaultBar, 2500);
+    }
+  } catch (err) {
+    setVaultStatus('Could not write to the folder', 'error');
+    console.error('Vault mirror failed:', err);
+  }
+}
+
+// Coalesce bursts: saving a note fires several storage events in a row.
+function queueVaultMirror() {
+  if (vaultMirrorQueued) return;
+  vaultMirrorQueued = true;
+  setTimeout(() => { vaultMirrorQueued = false; mirrorVault(); }, 600);
+}
+
+vaultActionBtn.addEventListener('click', async () => {
+  try {
+    const { state } = await vault.status();
+    if (state === 'granted') { await mirrorVault(); return; }
+    const name = state === 'prompt' ? await vault.reconnect() : await vault.connect();
+    setVaultStatus(`Saving to ${name}`, 'connected');
+    await mirrorVault();
+    await renderVaultBar();
+  } catch (err) {
+    // An aborted folder picker is a normal user choice, not a failure.
+    if (err && err.name === 'AbortError') return;
+    setVaultStatus(err.message || 'Could not connect the folder', 'error');
+  }
+});
+
+vaultForgetBtn.addEventListener('click', async () => {
+  if (!confirm('Stop writing new captures to this folder? Files already written stay where they are.')) return;
+  await vault.disconnect();
+  await renderVaultBar();
+});
+
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace !== 'local') return;
+  if (changes.offline_notes || changes.offline_page_notes) queueVaultMirror();
+});
+
+// Catch-up on open, once the in-memory lists are populated.
+(async () => {
+  await renderVaultBar();
+  setTimeout(mirrorVault, 1200);
+})();

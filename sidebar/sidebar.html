@@ -24,6 +24,13 @@
       <button class="tab-btn" role="tab" data-tab="pages" aria-selected="false">Pages</button>
     </nav>
 
+    <div id="vaultBar" class="vault-bar hidden">
+      <span class="vault-icon" data-icon="notebook"></span>
+      <span id="vaultStatus" class="vault-status">Not connected</span>
+      <button id="vaultAction" class="btn btn-secondary btn-sm">Choose folder</button>
+      <button id="vaultForget" class="btn-link hidden" title="Stop writing to this folder">Forget</button>
+    </div>
+
     <!-- Notes tab panel -->
     <section class="tab-panel active" data-panel="notes" role="tabpanel">
       <div class="search-bar">
@@ -158,6 +165,7 @@
   <script src="../lib/templates.js"></script>
   <script src="../lib/image-generator.js"></script>
   <script src="../lib/page-note-export.js"></script>
+  <script src="../lib/vault.js"></script>
   <script src="sidebar.js"></script>
 </body>
 </html>
