@@ -91,3 +91,85 @@
   --motion-slow: 1500ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ---------------------------------------------------------------------------
+ * Theme: Reader
+ *
+ * An alternate palette for people who want an editorial reading surface rather
+ * than the warm-paper notebook. White ground, near-black ink, a serif for
+ * content, one blue for actions, and the yellow highlighter carrying the
+ * quotes. Inspired by the editorial-serif-plus-marker look common to reading
+ * and highlight apps; it borrows the idea, not anyone's brand.
+ *
+ * Opt in by setting data-theme="reader" on <html>. Warm paper stays the
+ * default, and every token below is an override of one declared above, so
+ * nothing needs to know a theme exists.
+ *
+ * Serif stack is Charter then Georgia, both already present on macOS and
+ * Windows, so the theme costs no font downloads. The extension ships no CDN
+ * requests and this does not change that.
+ * ------------------------------------------------------------------------ */
+:root[data-theme="reader"] {
+  /* Surfaces: white page, cool greys for depth instead of warm cream */
+  --paper-50:  #FFFFFF;
+  --paper-100: #F7F8FA;
+  --paper-200: #E8EAEE;
+  --paper-300: #D3D7DE;
+
+  /* Ink */
+  --ink-700: #5A5F66;
+  --ink-900: #1F1F1F;
+
+  /* Action colour: blue replaces sage. Names kept so no stylesheet has to
+     change; only the values move. */
+  --sage-300: #A9C4E4;
+  --sage-500: #478CD0;  /* buttons, focus rings, badge, icons */
+  --sage-700: #2F6EAC;  /* blue as text, darkened to keep AA on white */
+
+  --warm-grey-100: #F2F4F7;
+  --warm-grey-300: #C8CDD5;
+  --warm-grey-500: #7A818B;
+
+  /* The signature marker yellow, brighter than the aged-paper version */
+  --mark-yellow: #FFF7CA;
+
+  /* Content is set in a serif; UI chrome stays in the sans. */
+  --font-serif: Charter, Georgia, "Iowan Old Style", "Times New Roman", serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --shadow-soft: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+/* Content wears the serif; controls, labels and metadata stay in the sans so
+   the reading surface is what feels editorial, not the furniture. */
+:root[data-theme="reader"] .note-card-title,
+:root[data-theme="reader"] .note-card-content,
+:root[data-theme="reader"] .page-row-title,
+:root[data-theme="reader"] .modal-title-input,
+:root[data-theme="reader"] .reader-body,
+:root[data-theme="reader"] #modalContent,
+:root[data-theme="reader"] #noteContent,
+:root[data-theme="reader"] .highlight-text {
+  font-family: var(--font-serif);
+}
+
+/* Highlights are the product. Give them the marker rather than a grey card.
+   The quote itself carries the colour, so the card drops its own left rule
+   (declared on .highlight-body in sidebar.css) instead of stacking a second
+   bar beside it. */
+:root[data-theme="reader"] .highlight-card {
+  background: transparent;
+  padding: var(--space-2) var(--space-3);
+}
+:root[data-theme="reader"] .highlight-body {
+  border-left: none;
+  padding-left: 0;
+}
+:root[data-theme="reader"] .highlight-text {
+  background: var(--mark-yellow);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 1px 3px;
+  border-radius: 2px;
+}

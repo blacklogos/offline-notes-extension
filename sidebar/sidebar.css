@@ -739,3 +739,12 @@ summary:focus-visible, .tag-chip:focus-visible, .btn-link:focus-visible {
   border-radius: var(--radius-sm);
   padding: var(--space-3);
 }
+
+/* The theme toggle reads as a letterform rather than an icon, since it is
+   about type as much as colour. */
+#themeToggle {
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: var(--text-14);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}

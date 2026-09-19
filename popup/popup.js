@@ -4,6 +4,9 @@ document.querySelectorAll('[data-icon]').forEach((el) => {
   if (Icons[name]) el.innerHTML = Icons[name];
 });
 
+// Paint the stored theme before anything else renders.
+applyStoredTheme();
+
 // Initialize storage manager
 const storage = new StorageManager();
 

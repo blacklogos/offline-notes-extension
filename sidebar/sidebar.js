@@ -7,6 +7,9 @@ document.querySelectorAll('[data-icon]').forEach((el) => {
 // Initialize managers
 const storage = new StorageManager();
 const markdown = new MarkdownExporter();
+
+// Paint the stored theme before the first render.
+applyStoredTheme();
 const imageGen = new ImageGenerator();
 const pageStorage = new PageNoteStorage();
 
@@ -930,3 +933,21 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   await renderVaultBar();
   setTimeout(mirrorVault, 1200);
 })();
+
+// ---- Theme switch ----
+// Two palettes, both defined in lib/tokens.css. This only flips which one is
+// active; nothing else in the sidebar knows a theme exists.
+const themeToggle = document.getElementById('themeToggle');
+
+async function refreshThemeToggle() {
+  const t = await getTheme();
+  themeToggle.title = t === 'reader' ? 'Theme: Reader. Switch to Paper' : 'Theme: Paper. Switch to Reader';
+}
+
+themeToggle.addEventListener('click', async () => {
+  const current = await getTheme();
+  await setTheme(current === 'reader' ? 'paper' : 'reader');
+  await refreshThemeToggle();
+});
+
+refreshThemeToggle();
