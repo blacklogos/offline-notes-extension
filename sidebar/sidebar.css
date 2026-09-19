@@ -708,3 +708,34 @@ summary:focus-visible, .tag-chip:focus-visible, .btn-link:focus-visible {
   padding: 0 var(--space-1);
 }
 .btn-link.hidden { display: none; }
+
+/* Saved article text. Plain text only: rendering the original HTML would pull
+   remote images and embeds, making a local read hit the network. */
+.reader-panel {
+  border-bottom: 1px solid var(--paper-200);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-12);
+}
+.reader-panel.hidden { display: none; }
+.reader-panel summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink-700);
+  min-height: 28px;
+}
+.reader-panel summary::-webkit-details-marker { display: none; }
+.reader-meta { color: var(--warm-grey-500); margin: var(--space-1) 0 var(--space-2); }
+.reader-body {
+  max-height: 320px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: var(--text-13, 13px);
+  line-height: var(--leading-normal);
+  color: var(--ink-900);
+  background: var(--paper-100);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}

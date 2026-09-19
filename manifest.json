@@ -8,7 +8,8 @@
     "sidePanel",
     "tabs",
     "scripting",
-    "contextMenus"
+    "contextMenus",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -37,9 +38,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["lib/icons.js", "lib/url-canonical.js", "lib/anchor.js", "content/highlight.js"],
-      "css": ["content/highlight.css"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "lib/icons.js",
+        "lib/url-canonical.js",
+        "lib/anchor.js",
+        "content/highlight.js"
+      ],
+      "css": [
+        "content/highlight.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
@@ -65,6 +76,13 @@
         "mac": "Alt+H"
       },
       "description": "Save highlighted text from current page"
+    },
+    "save-page": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Save readable page text to Offline Notes"
     }
   }
 }

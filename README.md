@@ -136,7 +136,8 @@ offline-notes-extension/
 
 ### Technologies Used
 - **Chrome Extension Manifest V3**
-- **html2canvas 1.4.1** - HTML to canvas conversion
+- **html2canvas 1.4.1** - HTML to canvas conversion (vendored, Apache-2.0)
+- **Readability.js** - readable article extraction, from Mozilla (vendored, Apache-2.0); injected on demand, not on every page load
 - **Chrome Storage API** - Local data storage
 - **Inter Display Fonts** - Beautiful typography
 - **Vanilla JavaScript** - No heavy frameworks

@@ -531,8 +531,43 @@ function openPageModal(note) {
   pageSourceLink.href = note.url;
   pageMetadataEl.textContent = `${note.highlights.length} highlight${note.highlights.length === 1 ? '' : 's'} · Updated ${relativeTime(note.updatedAt)}`;
   renderHighlights(note);
+  renderReaderPanel(note);
   pageModal.classList.remove('hidden');
 }
+
+// ---- Saved article text ----
+
+const readerPanel = document.getElementById('readerPanel');
+const readerSummary = document.getElementById('readerSummary');
+const readerMeta = document.getElementById('readerMeta');
+const readerBody = document.getElementById('readerBody');
+const clearSavedContentBtn = document.getElementById('clearSavedContent');
+
+function renderReaderPanel(note) {
+  const sc = note && note.savedContent;
+  if (!sc) { readerPanel.classList.add('hidden'); readerPanel.open = false; return; }
+  const text = typeof sc === 'string' ? sc : (sc.text || '');
+  const words = text ? text.split(/\s+/).length : 0;
+  readerSummary.textContent = `Saved article · ${words.toLocaleString()} words`;
+  const bits = [];
+  if (sc.byline) bits.push(sc.byline);
+  if (sc.siteName) bits.push(sc.siteName);
+  if (sc.savedAt) bits.push(`saved ${relativeTime(sc.savedAt)}`);
+  readerMeta.textContent = bits.join(' · ');
+  // textContent, never innerHTML: this is untrusted page text, and rendering it
+  // as markup would both invite injection and load remote assets.
+  readerBody.textContent = text;
+  readerPanel.classList.remove('hidden');
+}
+
+clearSavedContentBtn.addEventListener('click', async () => {
+  if (!currentPageNote) return;
+  if (!confirm('Remove the saved article text? Highlights on this page are kept.')) return;
+  await pageStorage.clearSavedContent(currentPageNote.id);
+  await loadPageNotes();
+  const fresh = await pageStorage.getById(currentPageNote.id);
+  if (fresh) { currentPageNote = fresh; renderReaderPanel(fresh); }
+});
 
 function closePageModal() {
   pageModal.classList.add('hidden');

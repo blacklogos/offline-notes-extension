@@ -136,6 +136,16 @@
         <button id="copyPageUrl" class="icon-btn" title="Copy URL" data-icon="link"></button>
       </div>
 
+      <details id="readerPanel" class="reader-panel hidden">
+        <summary>
+          <span id="readerSummary">Saved article</span>
+          <span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span>
+        </summary>
+        <div id="readerMeta" class="reader-meta"></div>
+        <div id="readerBody" class="reader-body"></div>
+        <button id="clearSavedContent" class="btn-link">Remove saved text</button>
+      </details>
+
       <div class="highlight-toolbar">
         <label><input type="checkbox" class="hl-checkbox" id="selectAllHighlights"> Select all</label>
         <span class="spacer"></span>

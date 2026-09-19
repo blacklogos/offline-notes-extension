@@ -34,6 +34,11 @@ chrome.runtime.onInstalled.addListener((details) => {
         title: 'Save highlight to Offline Notes',
         contexts: ['selection'],
       });
+      chrome.contextMenus.create({
+        id: 'save-page',
+        title: 'Save page text to Offline Notes',
+        contexts: ['page'],
+      });
     });
   } catch (err) {
     console.error('contextMenus.create failed:', err);
@@ -44,6 +49,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
+    case 'save-page': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab) await savePageContent(tab);
+      break;
+    }
     case 'quick-note':
       try { await chrome.action.openPopup(); } catch (err) { /* no active popup allowed; ignore */ }
       break;
@@ -65,12 +75,50 @@ chrome.commands.onCommand.addListener(async (command) => {
 // ---- Context menu ----
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === 'save-page' && tab?.id) { savePageContent(tab); return; }
   if (info.menuItemId !== 'save-highlight' || !tab?.id) return;
   chrome.tabs.sendMessage(tab.id, {
     type: 'CAPTURE_FROM_CONTEXT_MENU',
     selectionText: info.selectionText || '',
   });
 });
+
+
+// ---- Save readable page text ----
+
+async function savePageContent(tab) {
+  if (!tab?.id || !/^https?:/.test(tab.url || '')) return { ok: false, error: 'Unsupported page' };
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['lib/readability.js', 'lib/page-content.js'],
+    });
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => window.__offlineNotesExtractArticle(),
+    });
+    if (!result) {
+      await flashBadge(tab.id, '!');
+      return { ok: false, error: 'No readable article found on this page' };
+    }
+    await pageStorage.setSavedContent(tab.url, result.title || tab.title, result);
+    await flashBadge(tab.id, 'OK');
+    updateBadgeForTab(tab.id, tab.url);
+    return { ok: true, chars: result.chars };
+  } catch (err) {
+    console.error('savePageContent failed:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+// The page has no UI of its own for this action, so the toolbar badge is the
+// only feedback channel. Restore the highlight count afterwards.
+async function flashBadge(tabId, text) {
+  try {
+    await chrome.action.setBadgeText({ tabId, text });
+    setTimeout(() => { chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {}); }, 1500);
+  } catch (_) {}
+}
 
 // ---- Message router ----
 
@@ -107,6 +155,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
+    })();
+    return true;
+  }
+
+  if (msg.type === 'SAVE_PAGE_CONTENT') {
+    (async () => {
+      // A content script knows which tab it is in; trust that over the active
+      // tab, or a request from a background tab would save the wrong page.
+      // The sidebar has no sender.tab, so it falls back to the active tab.
+      let tab = sender.tab || null;
+      if (!tab) [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      sendResponse(tab ? await savePageContent(tab) : { ok: false, error: 'No active tab' });
     })();
     return true;
   }
