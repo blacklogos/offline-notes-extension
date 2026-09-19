@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reader</title>
+  <link rel="stylesheet" href="../lib/tokens.css">
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-left">
+      <button id="libraryBtn" class="bar-btn" title="Open the notes sidebar">Library</button>
+    </div>
+    <div class="bar-right">
+      <button id="sizeDown" class="bar-btn" title="Smaller text" aria-label="Smaller text">A-</button>
+      <button id="sizeUp" class="bar-btn" title="Larger text" aria-label="Larger text">A+</button>
+      <button id="railBtn" class="bar-btn" aria-expanded="false">Highlights</button>
+    </div>
+  </header>
+
+  <main id="main" class="main">
+    <article id="article" class="article" aria-live="polite">
+      <div id="loading" class="notice">Loading…</div>
+    </article>
+  </main>
+
+  <aside id="rail" class="rail" hidden aria-label="Highlights">
+    <div class="rail-head">
+      <span id="railCount">0 highlights</span>
+      <button id="railClose" class="bar-btn" aria-label="Close highlights">×</button>
+    </div>
+    <div id="railList" class="rail-list"></div>
+  </aside>
+
+  <div id="selBubble" class="sel-bubble" hidden>
+    <button id="selHighlight" class="sel-btn">Highlight</button>
+    <span class="sel-sep"></span>
+    <button id="selComment" class="sel-btn">Add note</button>
+  </div>
+
+  <script src="../lib/theme.js"></script>
+  <script src="../lib/url-canonical.js"></script>
+  <script src="../lib/page-storage.js"></script>
+  <script src="../lib/text-locate.js"></script>
+  <script src="reader-article.js"></script>
+  <script src="reader.js"></script>
+</body>
+</html>

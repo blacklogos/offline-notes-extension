@@ -543,12 +543,13 @@ function openPageModal(note) {
 const readerPanel = document.getElementById('readerPanel');
 const readerSummary = document.getElementById('readerSummary');
 const readerMeta = document.getElementById('readerMeta');
-const readerBody = document.getElementById('readerBody');
 const clearSavedContentBtn = document.getElementById('clearSavedContent');
 
+// A 13px scrolling box inside a 380px panel was never a reading surface. The
+// panel now reports what is saved and hands off to the full reader.
 function renderReaderPanel(note) {
   const sc = note && note.savedContent;
-  if (!sc) { readerPanel.classList.add('hidden'); readerPanel.open = false; return; }
+  if (!sc) { readerPanel.classList.add('hidden'); return; }
   const text = typeof sc === 'string' ? sc : (sc.text || '');
   const words = text ? text.split(/\s+/).length : 0;
   readerSummary.textContent = `Saved article · ${words.toLocaleString()} words`;
@@ -557,11 +558,13 @@ function renderReaderPanel(note) {
   if (sc.siteName) bits.push(sc.siteName);
   if (sc.savedAt) bits.push(`saved ${relativeTime(sc.savedAt)}`);
   readerMeta.textContent = bits.join(' · ');
-  // textContent, never innerHTML: this is untrusted page text, and rendering it
-  // as markup would both invite injection and load remote assets.
-  readerBody.textContent = text;
   readerPanel.classList.remove('hidden');
 }
+
+document.getElementById('openReader').addEventListener('click', () => {
+  if (!currentPageNote) return;
+  chrome.runtime.sendMessage({ type: 'OPEN_READER', pageNoteId: currentPageNote.id });
+});
 
 clearSavedContentBtn.addEventListener('click', async () => {
   if (!currentPageNote) return;

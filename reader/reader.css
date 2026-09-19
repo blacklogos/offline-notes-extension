@@ -1,0 +1,146 @@
+/*
+ * Reader — a distraction-free surface for an article already saved locally.
+ * Nothing here loads from the network: no images, no embeds, no webfonts
+ * beyond what the tokens already declare.
+ */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper-50);
+  color: var(--ink-900);
+  font-family: var(--font-sans);
+}
+
+/* Chrome stays sans and quiet; the article is the only thing with weight. */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--paper-50) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--paper-200);
+  font-size: var(--text-12);
+}
+.bar-left, .bar-right { display: flex; align-items: center; gap: var(--space-2); }
+.bar-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-700);
+  font: inherit;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.bar-btn:hover { background: var(--paper-200); }
+.bar-btn[aria-expanded="true"] { background: var(--paper-200); color: var(--ink-900); }
+
+.main {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-7) var(--space-4) 25vh;
+  transition: padding-right var(--motion-fast) var(--ease-out);
+}
+/* The rail is fixed, so the column has to yield space or the prose runs
+   underneath it. */
+body.rail-open .main { padding-right: calc(320px + var(--space-4)); }
+@media (max-width: 900px) {
+  body.rail-open .main { padding-right: var(--space-4); padding-bottom: 55vh; }
+}
+
+.article {
+  width: 100%;
+  max-width: 680px;
+  font-family: var(--font-serif, Charter, Georgia, serif);
+  font-size: var(--reader-size, 20px);
+  line-height: 1.65;
+}
+.article p { margin: 0 0 1.15em; }
+
+.doc-title {
+  font-size: calc(var(--reader-size, 20px) * 1.75);
+  line-height: 1.2;
+  font-weight: var(--weight-bold);
+  margin: 0 0 var(--space-3);
+}
+.doc-meta {
+  font-family: var(--font-sans);
+  font-size: var(--text-12);
+  color: var(--warm-grey-500);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--paper-200);
+}
+.doc-meta a { color: var(--sage-700); }
+
+/* Saved passages. The mark is the point of the product, so it carries colour
+   while the surrounding prose stays plain. */
+mark.rd-mark {
+  background: var(--mark-yellow);
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: pointer;
+}
+mark.rd-mark.is-active { outline: 2px solid var(--sage-500); outline-offset: 1px; }
+mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
+
+.notice {
+  font-family: var(--font-sans);
+  font-size: var(--text-14);
+  color: var(--warm-grey-500);
+}
+
+/* Highlight rail */
+.rail {
+  position: fixed;
+  top: 41px; right: 0; bottom: 0;
+  width: 320px;
+  overflow-y: auto;
+  background: var(--paper-100);
+  border-left: 1px solid var(--paper-200);
+  padding: var(--space-3);
+  font-size: var(--text-12);
+}
+.rail[hidden] { display: none; }
+.rail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-2); color: var(--ink-700); }
+.rail-item {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border-left: 3px solid var(--mark-yellow);
+  margin-bottom: var(--space-2);
+  background: var(--paper-50);
+}
+.rail-item:hover, .rail-item.is-active { background: var(--paper-200); }
+.rail-item-quote { font-family: var(--font-serif, Georgia, serif); font-size: 13px; line-height: 1.45; color: var(--ink-900); }
+.rail-item-note { margin-top: 4px; color: var(--ink-700); font-style: italic; }
+.rail-group { margin: var(--space-3) 0 var(--space-2); color: var(--warm-grey-500); text-transform: none; }
+.rail-item.is-lost { border-left-color: var(--warm-grey-300); opacity: 0.75; cursor: default; }
+
+/* Selection bubble inside the reader */
+.sel-bubble {
+  position: absolute;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  background: var(--paper-50);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  font-size: var(--text-12);
+}
+.sel-bubble[hidden] { display: none; }
+.sel-btn { border: none; background: transparent; font: inherit; font-weight: var(--weight-semibold); color: var(--ink-900); padding: 7px 12px; cursor: pointer; }
+.sel-btn:hover { background: var(--paper-200); }
+.sel-sep { width: 1px; align-self: stretch; background: var(--paper-200); }
+
+@media (max-width: 900px) {
+  .rail { width: 100%; top: auto; height: 50vh; border-left: none; border-top: 1px solid var(--paper-200); }
+}

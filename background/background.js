@@ -171,6 +171,43 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // Open (or focus) the reader for a saved page note.
+  if (msg.type === 'OPEN_READER') {
+    (async () => {
+      try {
+        const url = chrome.runtime.getURL(`reader/reader.html?page=${encodeURIComponent(msg.pageNoteId)}`);
+        // Reuse a reader tab already showing this page note rather than
+        // stacking duplicates every time the button is pressed.
+        const existing = await chrome.tabs.query({ url: chrome.runtime.getURL('reader/reader.html') + '*' });
+        const match = existing.find((t) => t.url === url);
+        if (match) {
+          await chrome.tabs.update(match.id, { active: true });
+          await chrome.windows.update(match.windowId, { focused: true });
+        } else {
+          await chrome.tabs.create({ url });
+        }
+        sendResponse({ ok: true });
+      } catch (err) {
+        console.error('OPEN_READER failed:', err);
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (msg.type === 'OPEN_SIDEBAR') {
+    (async () => {
+      try {
+        const win = sender.tab?.windowId ?? (await chrome.windows.getCurrent()).id;
+        await chrome.sidePanel.open({ windowId: win });
+        sendResponse({ ok: true });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (msg.type === 'GET_PAGE_NOTE') {
     (async () => {
       try {

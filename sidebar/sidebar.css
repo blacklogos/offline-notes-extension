@@ -717,28 +717,10 @@ summary:focus-visible, .tag-chip:focus-visible, .btn-link:focus-visible {
   font-size: var(--text-12);
 }
 .reader-panel.hidden { display: none; }
-.reader-panel summary {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  cursor: pointer;
-  list-style: none;
-  color: var(--ink-700);
-  min-height: 28px;
-}
-.reader-panel summary::-webkit-details-marker { display: none; }
+
 .reader-meta { color: var(--warm-grey-500); margin: var(--space-1) 0 var(--space-2); }
-.reader-body {
-  max-height: 320px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  font-size: var(--text-13, 13px);
-  line-height: var(--leading-normal);
-  color: var(--ink-900);
-  background: var(--paper-100);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-}
+.reader-state { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.reader-actions { display: flex; align-items: center; gap: var(--space-3); }
 
 /* The theme toggle reads as a letterform rather than an icon, since it is
    about type as much as colour. */

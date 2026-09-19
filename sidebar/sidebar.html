@@ -137,15 +137,16 @@
         <button id="copyPageUrl" class="icon-btn" title="Copy URL" data-icon="link"></button>
       </div>
 
-      <details id="readerPanel" class="reader-panel hidden">
-        <summary>
+      <div id="readerPanel" class="reader-panel hidden">
+        <div class="reader-state">
           <span id="readerSummary">Saved article</span>
-          <span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span>
-        </summary>
-        <div id="readerMeta" class="reader-meta"></div>
-        <div id="readerBody" class="reader-body"></div>
-        <button id="clearSavedContent" class="btn-link">Remove saved text</button>
-      </details>
+          <span id="readerMeta" class="reader-meta"></span>
+        </div>
+        <div class="reader-actions">
+          <button id="openReader" class="btn btn-primary btn-sm">Read offline</button>
+          <button id="clearSavedContent" class="btn-link">Remove saved text</button>
+        </div>
+      </div>
 
       <div class="highlight-toolbar">
         <label><input type="checkbox" class="hl-checkbox" id="selectAllHighlights"> Select all</label>
