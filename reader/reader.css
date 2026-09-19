@@ -3,6 +3,39 @@
  * Nothing here loads from the network: no images, no embeds, no webfonts
  * beyond what the tokens already declare.
  */
+/* Typefaces, chosen by rendering Vietnamese and looking at the result rather
+   than trusting a glyph probe. Width and document.fonts.check both reported
+   full coverage for Iowan Old Style and Charter, yet both rendered "dựa" as
+   "dủa" and "trường" as "trủờng": macOS substitutes the horn+tone composites
+   from another face and the composition comes out wrong. Georgia renders the
+   whole set correctly, so it leads the serif stack and Charter and Iowan are
+   gone. Inter Display ships with the extension, so the sans stack renders
+   identically on every machine and is the guaranteed-correct option. */
+:root {
+  --rd-serif: Georgia, "Times New Roman", serif;
+  --rd-sans: "Inter Display", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --rd-face: var(--rd-serif);
+}
+:root[data-face="sans"] { --rd-face: var(--rd-sans); }
+
+/* Dark mode is reader-local: a night reading surface, not a second theme.
+   Warm off-black rather than pure black, and the marker desaturated so it
+   stops glowing. */
+:root.rd-dark {
+  --paper-50:  #17181A;
+  --paper-100: #1F2124;
+  --paper-200: #2C2F33;
+  --paper-300: #3C4046;
+  --ink-700:   #A8AEB6;
+  --ink-900:   #E6E8EA;
+  --warm-grey-500: #8B9198;
+  --mark-yellow: #5A4A1F;
+  --sage-500: #7FA7D8;
+  --sage-700: #9DBDE6;
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+:root.rd-dark mark.rd-mark { color: #F3E6C0; }
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -55,13 +88,45 @@ body.rail-open .main { padding-right: calc(320px + var(--space-4)); }
 .article {
   width: 100%;
   max-width: 680px;
-  font-family: var(--font-serif, Charter, Georgia, serif);
+  font-family: var(--rd-face);
   font-size: var(--reader-size, 20px);
-  line-height: 1.65;
+  line-height: 1.7;
 }
 .article p { margin: 0 0 1.15em; }
 
+/* Structure recovered from the capture: a heading should look like one. */
+.article-body h2,
+.article-body h3,
+.article-body h4 {
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  margin: 1.8em 0 0.6em;
+}
+.article-body h2 { font-size: 1.32em; }
+.article-body h3 { font-size: 1.15em; }
+.article-body h4 { font-size: 1em; color: var(--ink-700); }
+.article-body ul { margin: 0 0 1.15em; padding-left: 1.3em; }
+.article-body li { margin: 0 0 0.4em; }
+.article-body blockquote {
+  margin: 0 0 1.15em;
+  padding-left: 1em;
+  border-left: 3px solid var(--paper-300);
+  color: var(--ink-700);
+}
+.article-body pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  line-height: 1.5;
+  background: var(--paper-100);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 0 0 1.15em;
+}
+.article-body figcaption { font-size: 0.82em; color: var(--warm-grey-500); margin: -0.6em 0 1.15em; }
+
 .doc-title {
+  font-family: var(--rd-face);
   font-size: calc(var(--reader-size, 20px) * 1.75);
   line-height: 1.2;
   font-weight: var(--weight-bold);
@@ -96,6 +161,18 @@ mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
   font-size: var(--text-14);
   color: var(--warm-grey-500);
 }
+.notice[hidden] { display: none; }
+.notice-action {
+  margin-left: var(--space-2);
+  border: 1px solid var(--paper-300);
+  background: var(--paper-50);
+  color: var(--ink-900);
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.notice-action:hover { background: var(--paper-200); }
 
 /* Highlight rail */
 .rail {
@@ -119,7 +196,7 @@ mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
   background: var(--paper-50);
 }
 .rail-item:hover, .rail-item.is-active { background: var(--paper-200); }
-.rail-item-quote { font-family: var(--font-serif, Georgia, serif); font-size: 13px; line-height: 1.45; color: var(--ink-900); }
+.rail-item-quote { font-family: var(--rd-face); font-size: 13px; line-height: 1.45; color: var(--ink-900); }
 .rail-item-note { margin-top: 4px; color: var(--ink-700); font-style: italic; }
 .rail-group { margin: var(--space-3) 0 var(--space-2); color: var(--warm-grey-500); text-transform: none; }
 .rail-item.is-lost { border-left-color: var(--warm-grey-300); opacity: 0.75; cursor: default; }

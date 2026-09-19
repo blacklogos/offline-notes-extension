@@ -134,7 +134,9 @@
   --mark-yellow: #FFF7CA;
 
   /* Content is set in a serif; UI chrome stays in the sans. */
-  --font-serif: Charter, Georgia, "Iowan Old Style", "Times New Roman", serif;
+  /* Georgia first: Charter and Iowan Old Style render Vietnamese horn+tone
+     composites incorrectly on macOS. See reader/reader.css for the detail. */
+  --font-serif: Georgia, "Times New Roman", serif;
 
   --radius-sm: 6px;
   --radius-md: 10px;

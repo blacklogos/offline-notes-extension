@@ -11,6 +11,11 @@
 
   const el = {
     article: document.getElementById('article'),
+    docHead: document.getElementById('docHead'),
+    body: document.getElementById('articleBody'),
+    notice: document.getElementById('notice'),
+    fontToggle: document.getElementById('fontToggle'),
+    darkToggle: document.getElementById('darkToggle'),
     rail: document.getElementById('rail'),
     railBtn: document.getElementById('railBtn'),
     railList: document.getElementById('railList'),
@@ -26,6 +31,7 @@
 
   const pageStorage = new PageNoteStorage();
   let note = null, located = [], lost = [], sizeIdx = 2, activeId = null;
+  let face = 'serif', dark = false;
 
   const pageId = new URLSearchParams(location.search).get('page');
 
@@ -47,6 +53,16 @@
     document.documentElement.style.setProperty('--reader-size', SIZES[sizeIdx] + 'px');
   }
 
+  function applyFace() {
+    document.documentElement.dataset.face = face;
+    el.fontToggle.textContent = face === 'serif' ? 'Serif' : 'Sans';
+  }
+
+  function applyDark() {
+    document.documentElement.classList.toggle('rd-dark', dark);
+    el.darkToggle.setAttribute('aria-pressed', String(dark));
+  }
+
   // ---- Render ----
 
   function header() {
@@ -66,25 +82,64 @@
     a.href = note.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
     a.textContent = 'Open original';
     meta.appendChild(a);
-    el.article.append(h1, meta);
+    el.docHead.append(h1, meta);
+  }
+
+  function setNotice(text, actionLabel, onAction) {
+    el.notice.textContent = '';
+    if (!text) { el.notice.hidden = true; return; }
+    el.notice.hidden = false;
+    el.notice.appendChild(document.createTextNode(text));
+    if (actionLabel) {
+      const b = document.createElement('button');
+      b.className = 'notice-action';
+      b.textContent = actionLabel;
+      b.addEventListener('click', onAction);
+      el.notice.appendChild(b);
+    }
   }
 
   function render() {
-    el.article.textContent = '';
+    el.docHead.textContent = '';
+    el.body.textContent = '';
     header();
     const text = (note.savedContent && note.savedContent.text) || '';
     if (!text) {
-      const n = document.createElement('div');
-      n.className = 'notice';
-      n.textContent = 'No article text is saved for this page yet. Your highlights are still safe in the sidebar.';
-      el.article.appendChild(n);
+      // A dead end before. Offer the way out: capture it from the live page.
+      setNotice('No article text is saved for this page yet. Your highlights are safe.', 'Save it now', saveArticleNow);
+      // The rail still renders, so the highlights remain reachable here.
+      located = []; lost = note.highlights || [];
+      renderRail();
+      el.railBtn.textContent = `Highlights ${(note.highlights || []).length}`;
       return;
     }
+    setNotice('');
     const res = window.ReaderArticle.locateHighlights(text, note.highlights || []);
     located = res.located; lost = res.lost;
-    window.ReaderArticle.renderArticle(el.article, text, located);
+    window.ReaderArticle.renderArticle(el.body, text, located, note.savedContent.blocks);
     renderRail();
     el.railBtn.textContent = `Highlights ${(note.highlights || []).length}`;
+  }
+
+  // Capture the article from a tab already showing this URL, so the reader can
+  // fill itself instead of sending the user away to press Alt+S.
+  async function saveArticleNow() {
+    setNotice('Looking for an open tab with this page…');
+    try {
+      const tabs = await chrome.tabs.query({ url: note.url.split('#')[0] });
+      if (!tabs.length) {
+        setNotice('Open the page in a tab first, then press Save it now.', 'Open the page', () => {
+          chrome.tabs.create({ url: note.url });
+        });
+        return;
+      }
+      await chrome.tabs.update(tabs[0].id, { active: true });
+      const res = await chrome.runtime.sendMessage({ type: 'SAVE_PAGE_CONTENT' });
+      if (!res || !res.ok) { setNotice((res && res.error) || 'Could not read that page.'); return; }
+      await reload();
+    } catch (err) {
+      setNotice('Could not save the article: ' + err.message);
+    }
   }
 
   function railItem(h, isLost) {
@@ -138,9 +193,15 @@
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
     const range = sel.getRangeAt(0);
-    if (!el.article.contains(range.commonAncestorContainer)) return null;
+    if (!el.body.contains(range.commonAncestorContainer)) return null;
     if (!range.toString().trim()) return null;
     return range;
+  }
+
+  function enclosingMark(range) {
+    const node = range.commonAncestorContainer;
+    const el0 = node.nodeType === 1 ? node : node.parentElement;
+    return el0 && el0.closest ? el0.closest('mark.rd-mark') : null;
   }
 
   function showBubbleFor(range) {
@@ -160,9 +221,18 @@
   async function captureSelection(withComment) {
     const range = currentSelectionRange();
     if (!range) return;
+    const existing = enclosingMark(range);
+    if (existing) {
+      // Already saved. Focus it rather than storing the same words twice.
+      hideBubble();
+      window.getSelection().removeAllRanges();
+      focusHighlight(existing.dataset.hlId, false);
+      if (el.rail.hidden) window.__setRail(true);
+      return;
+    }
     const text = (note.savedContent && note.savedContent.text) || '';
-    const start = window.ReaderArticle.offsetOf(el.article, range.startContainer, range.startOffset);
-    const end = window.ReaderArticle.offsetOf(el.article, range.endContainer, range.endOffset);
+    const start = window.ReaderArticle.offsetOf(el.body, range.startContainer, range.startOffset);
+    const end = window.ReaderArticle.offsetOf(el.body, range.endContainer, range.endOffset);
     const exact = range.toString();
     const anchor = (start >= 0 && end > start)
       ? { exact, prefix: text.slice(Math.max(0, start - 32), start), suffix: text.slice(end, end + 32) }
@@ -195,11 +265,8 @@
   async function reload() {
     note = await pageStorage.getById(pageId);
     if (!note) {
-      el.article.textContent = '';
-      const n = document.createElement('div');
-      n.className = 'notice';
-      n.textContent = 'That page note no longer exists.';
-      el.article.appendChild(n);
+      el.docHead.textContent = ''; el.body.textContent = '';
+      setNotice('That page note no longer exists.');
       return;
     }
     document.title = (note.savedContent && note.savedContent.title) || note.pageTitle || 'Reader';
@@ -210,11 +277,10 @@
     await applyStoredTheme();
     const prefs = await loadPrefs();
     if (typeof prefs.sizeIdx === 'number') sizeIdx = Math.min(SIZES.length - 1, Math.max(0, prefs.sizeIdx));
-    applySize();
-    if (!pageId) {
-      el.article.textContent = 'No page specified.';
-      return;
-    }
+    if (prefs.face === 'sans' || prefs.face === 'serif') face = prefs.face;
+    dark = !!prefs.dark;
+    applySize(); applyFace(); applyDark();
+    if (!pageId) { setNotice('No page specified.'); return; }
     await reload();
 
     const y = prefs.scroll && prefs.scroll[pageId];
@@ -231,6 +297,8 @@
     el.libraryBtn.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'OPEN_SIDEBAR' }));
     el.sizeUp.addEventListener('click', () => { sizeIdx = Math.min(SIZES.length - 1, sizeIdx + 1); applySize(); savePrefs({ sizeIdx }); });
     el.sizeDown.addEventListener('click', () => { sizeIdx = Math.max(0, sizeIdx - 1); applySize(); savePrefs({ sizeIdx }); });
+    el.fontToggle.addEventListener('click', () => { face = face === 'serif' ? 'sans' : 'serif'; applyFace(); savePrefs({ face }); });
+    el.darkToggle.addEventListener('click', () => { dark = !dark; applyDark(); savePrefs({ dark }); });
     el.selHighlight.addEventListener('click', () => captureSelection(false));
     el.selComment.addEventListener('click', () => captureSelection(true));
 
@@ -238,7 +306,7 @@
       const range = currentSelectionRange();
       if (range) showBubbleFor(range); else hideBubble();
     });
-    el.article.addEventListener('click', (e) => {
+    el.body.addEventListener('click', (e) => {
       const mark = e.target.closest && e.target.closest('mark.rd-mark');
       if (mark) {
         focusHighlight(mark.dataset.hlId, false);

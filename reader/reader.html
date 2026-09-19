@@ -13,6 +13,8 @@
       <button id="libraryBtn" class="bar-btn" title="Open the notes sidebar">Library</button>
     </div>
     <div class="bar-right">
+      <button id="fontToggle" class="bar-btn" title="Switch typeface">Serif</button>
+      <button id="darkToggle" class="bar-btn" title="Switch between light and dark" aria-label="Switch between light and dark">◑</button>
       <button id="sizeDown" class="bar-btn" title="Smaller text" aria-label="Smaller text">A-</button>
       <button id="sizeUp" class="bar-btn" title="Larger text" aria-label="Larger text">A+</button>
       <button id="railBtn" class="bar-btn" aria-expanded="false">Highlights</button>
@@ -20,8 +22,12 @@
   </header>
 
   <main id="main" class="main">
-    <article id="article" class="article" aria-live="polite">
-      <div id="loading" class="notice">Loading…</div>
+    <article id="article" class="article">
+      <div id="docHead"></div>
+      <!-- Only this element holds article text. Notices and the header stay
+           outside it so they can never be highlighted or shift text offsets. -->
+      <div id="articleBody" class="article-body"></div>
+      <div id="notice" class="notice" aria-live="polite">Loading…</div>
     </article>
   </main>
 
