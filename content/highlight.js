@@ -342,7 +342,70 @@
       const unresolved = highlights.filter(h => !paintHighlight(h));
       if (r && r.pendingScroll) scrollTo(r.pendingScroll.highlightId);
       watchForLateContent(unresolved);
+      showPresence(note, highlights.length, highlights.length - unresolved.length);
     } catch (e) { if (isCtxOk()) console.error('Offline Notes: repaint failed', e); }
+  }
+
+  // ---- Presence pill ----
+  //
+  // A page you have highlighted before should say so. The count is honest
+  // about how many of the saved quotes this page can actually show, because a
+  // badge reading 5 over a page displaying none is worse than no badge.
+
+  let pill = null, pillRoot = null, pillDismissed = false, pillIndex = -1;
+
+  function showPresence(note, total, locatedCount) {
+    if (pillDismissed) return;
+    if (!total) { if (pill) { pill.remove(); pill = null; } return; }
+    if (!pill) buildPill();
+    const label = pillRoot.getElementById('pl');
+    label.textContent = locatedCount === total
+      ? `${total} highlight${total === 1 ? '' : 's'}`
+      : `${total} highlights · ${locatedCount} on this page`;
+    pillRoot.getElementById('nav').style.display = locatedCount > 1 ? 'inline-flex' : 'none';
+  }
+
+  function buildPill() {
+    pill = document.createElement('offline-notes-presence');
+    pill.style.cssText = 'all:initial;position:fixed;z-index:2147483646;bottom:16px;right:16px;';
+    pillRoot = pill.attachShadow({ mode: 'open' });
+    pillRoot.innerHTML = `
+      <style>
+        :host{all:initial}
+        *{box-sizing:border-box}
+        .p{display:inline-flex;align-items:center;gap:2px;background:#FAF7F2;border:1px solid #D8D0BF;border-radius:999px;box-shadow:0 2px 10px rgba(42,38,34,.14);font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;padding:3px 4px}
+        .b{border:none;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:5px 8px;border-radius:999px}
+        .b:hover{background:#EAE4D8}
+        #nav{display:inline-flex}
+        .x{color:#8A8275}
+      </style>
+      <div class="p">
+        <button class="b" id="pl" title="Open these highlights in the sidebar"></button>
+        <span id="nav">
+          <button class="b" id="prev" title="Previous highlight" aria-label="Previous highlight">‹</button>
+          <button class="b" id="next" title="Next highlight" aria-label="Next highlight">›</button>
+        </span>
+        <button class="b x" id="hide" title="Hide for this page" aria-label="Hide">×</button>
+      </div>`;
+    document.body.appendChild(pill);
+    pillRoot.getElementById('pl').addEventListener('click', () => send({ type: 'OPEN_SIDEBAR' }).catch(() => {}));
+    pillRoot.getElementById('prev').addEventListener('click', () => stepHighlight(-1));
+    pillRoot.getElementById('next').addEventListener('click', () => stepHighlight(1));
+    pillRoot.getElementById('hide').addEventListener('click', () => {
+      // Hides the indicator only. Nothing stored is touched, and the marks stay.
+      pillDismissed = true; pill.remove(); pill = null;
+    });
+  }
+
+  // Jumping is explicit. An ordinary revisit never moves the page.
+  function stepHighlight(delta) {
+    const marks = [...document.querySelectorAll(`mark.${MARK_CLASS}`)];
+    if (!marks.length) return;
+    pillIndex = (pillIndex + delta + marks.length) % marks.length;
+    const m = marks[pillIndex];
+    m.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    m.classList.add(FLASH_CLASS);
+    setTimeout(() => m.classList.remove(FLASH_CLASS), 1600);
   }
 
   // Page notes are keyed by URL, and an SPA changes URL without a reload, so
