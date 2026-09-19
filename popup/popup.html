@@ -17,6 +17,19 @@
       <button id="openSidebar" class="icon-btn" title="Open full notes manager" data-icon="chevronRight"></button>
     </header>
 
+    <!-- Current page context: the reader's main entry point. Sits above the
+         composer but never takes focus from it. -->
+    <div id="pageContext" class="page-context hidden">
+      <div class="page-context-line">
+        <span id="pageContextTitle" class="page-context-title"></span>
+        <span id="pageContextMeta" class="page-context-meta"></span>
+      </div>
+      <div class="page-context-actions">
+        <button id="pageRead" class="btn btn-primary btn-sm">Read offline</button>
+        <button id="pageSaveRead" class="btn btn-secondary btn-sm">Save &amp; read</button>
+      </div>
+    </div>
+
     <form id="noteForm">
       <textarea
         id="noteContent"

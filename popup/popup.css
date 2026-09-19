@@ -137,3 +137,23 @@ textarea::-webkit-scrollbar { width: 8px; }
 textarea::-webkit-scrollbar-track { background: var(--paper-100); border-radius: var(--radius-sm); }
 textarea::-webkit-scrollbar-thumb { background: var(--paper-300); border-radius: var(--radius-sm); }
 textarea::-webkit-scrollbar-thumb:hover { background: var(--warm-grey-300); }
+
+/* Current page context. Quiet by default: this is a capture surface first. */
+.page-context {
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--paper-100);
+  border-radius: var(--radius-md);
+  font-size: var(--text-12);
+}
+.page-context.hidden { display: none; }
+.page-context-line { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-2); }
+.page-context-title {
+  font-weight: var(--weight-semibold);
+  color: var(--ink-900);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.page-context-meta { color: var(--warm-grey-500); }
+.page-context-actions { display: flex; gap: var(--space-2); }
+.page-context-actions .btn { flex: 1; }
+.btn-sm { padding: 6px 10px; font-size: var(--text-12); }

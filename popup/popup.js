@@ -169,3 +169,70 @@ chrome.storage.local.get('draft_note', (result) => {
   }
 });
 
+
+// ---- Current page context ----
+//
+// The reader's main entry point. A page whose article is already saved offers
+// "Read offline"; one that is not offers "Save & read", which captures the
+// article and opens it in one step. Neither steals focus from the composer.
+
+const pageContext = document.getElementById('pageContext');
+const pageContextTitle = document.getElementById('pageContextTitle');
+const pageContextMeta = document.getElementById('pageContextMeta');
+const pageReadBtn = document.getElementById('pageRead');
+const pageSaveReadBtn = document.getElementById('pageSaveRead');
+
+let contextNote = null;
+
+async function loadPageContext() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // Only http(s) pages can be captured; extension and settings pages cannot.
+    if (!tab || !/^https?:/.test(tab.url || '')) return;
+
+    const res = await chrome.runtime.sendMessage({ type: 'GET_PAGE_NOTE', url: tab.url });
+    contextNote = (res && res.pageNote) || null;
+    pageContextTitle.textContent = (contextNote && contextNote.pageTitle) || tab.title || tab.url;
+
+    const count = contextNote ? contextNote.highlights.length : 0;
+    const saved = !!(contextNote && contextNote.savedContent);
+    const bits = [];
+    bits.push(count ? `${count} highlight${count === 1 ? '' : 's'}` : 'No highlights yet');
+    if (saved) bits.push('article saved');
+    pageContextMeta.textContent = bits.join(' · ');
+
+    // "Read offline" only means something once there is an article to read.
+    pageReadBtn.classList.toggle('hidden', !saved);
+    pageSaveReadBtn.textContent = saved ? 'Update article' : 'Save & read';
+    pageContext.classList.remove('hidden');
+  } catch (err) {
+    console.error('Page context failed:', err);
+  }
+}
+
+pageReadBtn.addEventListener('click', async () => {
+  if (!contextNote) return;
+  await chrome.runtime.sendMessage({ type: 'OPEN_READER', pageNoteId: contextNote.id });
+  window.close();
+});
+
+pageSaveReadBtn.addEventListener('click', async () => {
+  pageSaveReadBtn.disabled = true;
+  pageSaveReadBtn.textContent = 'Saving…';
+  const res = await chrome.runtime.sendMessage({ type: 'SAVE_PAGE_CONTENT' });
+  if (!res || !res.ok) {
+    // Be explicit that the failure is about the article, not their highlights.
+    pageContextMeta.textContent = (res && res.error) || 'Could not read this page';
+    pageSaveReadBtn.disabled = false;
+    pageSaveReadBtn.textContent = 'Save & read';
+    return;
+  }
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const fresh = await chrome.runtime.sendMessage({ type: 'GET_PAGE_NOTE', url: tab.url });
+  if (fresh && fresh.pageNote) {
+    await chrome.runtime.sendMessage({ type: 'OPEN_READER', pageNoteId: fresh.pageNote.id });
+    window.close();
+  }
+});
+
+loadPageContext();
