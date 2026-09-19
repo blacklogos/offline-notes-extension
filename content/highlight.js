@@ -303,14 +303,66 @@
     return out;
   }
 
+  // Repaint used to run exactly once, at document_idle. On any site that
+  // renders its article after that (most React/Next/SPA article pages do)
+  // every saved highlight silently failed to appear: the anchor resolved fine,
+  // the text just was not in the DOM yet. So unresolved highlights are retried
+  // as the page mutates, for a bounded window.
+  const LATE_RENDER_WINDOW_MS = 15000;
+  let lateObserver = null, lateTimer = null, lateDebounce = null;
+
+  function stopWatchingForContent() {
+    if (lateObserver) { lateObserver.disconnect(); lateObserver = null; }
+    clearTimeout(lateTimer); lateTimer = null;
+    clearTimeout(lateDebounce); lateDebounce = null;
+  }
+
+  function watchForLateContent(unresolved) {
+    stopWatchingForContent();
+    if (!unresolved.length || !document.body) return;
+    let remaining = unresolved.slice();
+    const attempt = () => {
+      remaining = remaining.filter(h => !paintHighlight(h));
+      if (!remaining.length) stopWatchingForContent();
+    };
+    lateObserver = new MutationObserver(() => {
+      clearTimeout(lateDebounce);
+      lateDebounce = setTimeout(attempt, 150);
+    });
+    lateObserver.observe(document.body, { childList: true, subtree: true });
+    // Give up eventually rather than observing the document forever.
+    lateTimer = setTimeout(stopWatchingForContent, LATE_RENDER_WINDOW_MS);
+  }
+
   async function repaint() {
     try {
       const r = await send({ type: 'GET_PAGE_NOTE_WITH_SCROLL', url: location.href });
       const note = r && r.pageNote;
-      if (note && note.highlights) for (const h of note.highlights) paintHighlight(h);
+      const highlights = (note && note.highlights) || [];
+      const unresolved = highlights.filter(h => !paintHighlight(h));
       if (r && r.pendingScroll) scrollTo(r.pendingScroll.highlightId);
+      watchForLateContent(unresolved);
     } catch (e) { if (isCtxOk()) console.error('Offline Notes: repaint failed', e); }
   }
+
+  // Page notes are keyed by URL, and an SPA changes URL without a reload, so
+  // without this the highlights for the newly shown article never load.
+  let lastHref = location.href;
+  function onUrlMaybeChanged() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    stopWatchingForContent();
+    repaint();
+  }
+  for (const method of ['pushState', 'replaceState']) {
+    const original = history[method];
+    history[method] = function (...args) {
+      const out = original.apply(this, args);
+      setTimeout(onUrlMaybeChanged, 0);
+      return out;
+    };
+  }
+  window.addEventListener('popstate', () => setTimeout(onUrlMaybeChanged, 0));
 
   function scrollTo(hlId) {
     const m = document.querySelector(`mark.${MARK_CLASS}[data-highlight-id="${hlId}"]`);
