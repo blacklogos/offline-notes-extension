@@ -45,6 +45,7 @@
       "js": [
         "lib/icons.js",
         "lib/url-canonical.js",
+        "lib/highlight-style.js",
         "lib/anchor.js",
         "content/highlight.js"
       ],

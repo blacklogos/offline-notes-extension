@@ -22,6 +22,30 @@
 
   let host = null, root = null, wrap = null;
   let hideT = null, lastText = '', saveCtx = null, commenting = false, lastRect = null;
+  // The highlight the current selection sits inside, if any. When set, the
+  // bubble offers Bold and Note instead of Save: selecting inside an existing
+  // highlight used to create a second overlapping copy that could never paint.
+  let activeMarkId = null;
+  let currentColor = window.HighlightStyle.DEFAULT_HIGHLIGHT_COLOR;
+
+  function setColor(name) {
+    currentColor = name;
+    paintSwatches();
+    try { chrome.storage.local.set({ offline_notes_last_color: name }); } catch (_) {}
+  }
+
+  function paintSwatches() {
+    if (!root) return;
+    root.querySelectorAll('.sw b').forEach((d) => d.classList.toggle('on', d.dataset.color === currentColor));
+  }
+
+  // Remember the last colour so a run of highlights in one colour is one click
+  // each, not two.
+  try {
+    chrome.storage.local.get('offline_notes_last_color').then((r) => {
+      if (r && r.offline_notes_last_color) { currentColor = r.offline_notes_last_color; paintSwatches(); }
+    }).catch(() => {});
+  } catch (_) {}
 
   function ensureBubble() {
     if (host && document.body.contains(host)) return;
@@ -44,6 +68,12 @@
         .b.ok .i{color:#5F7A6A}
         .b.err{color:#8A4A3E}
         .sep{width:1px;background:#D8D0BF;flex-shrink:0;margin:6px 0}
+        .sw{display:inline-flex;align-items:center;gap:4px;padding:0 8px}
+        .sw b{width:14px;height:14px;border-radius:50%;border:1px solid rgba(42,38,34,.25);cursor:pointer;display:inline-block}
+        .sw b.on{box-shadow:0 0 0 2px #7C9885}
+        #markBar{display:none}
+        #markBar.on{display:flex}
+        .bar.off{display:none}
         .cm{display:none;padding:8px 10px 10px;border-top:1px solid #EAE4D8}
         .cm.on{display:block}
         .ta{display:block;width:240px;min-height:48px;max-height:80px;padding:6px 8px;font:400 13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#2A2622;background:#F5F1EA;border:1px solid #D8D0BF;border-radius:6px;resize:none;outline:none}
@@ -56,6 +86,13 @@
           <button class="b" id="saveBtn"><span class="i" id="ico"></span><span id="lbl">Save</span></button>
           <span class="sep"></span>
           <button class="b" id="noteBtn" title="Save and add a note" aria-label="Save and add a note"><span class="i" id="ico2"></span></button>
+          <span class="sep"></span>
+          <span class="sw" id="sw"></span>
+        </div>
+        <div class="bar" id="markBar">
+          <button class="b" id="boldBtn" title="Emphasise this part of the quote">Bold</button>
+          <span class="sep"></span>
+          <button class="b" id="markNoteBtn" title="Add or edit the note">Note</button>
         </div>
         <div class="cm" id="cm">
           <textarea class="ta" id="ta" rows="2" aria-label="Note for this highlight" placeholder="Add a note…"></textarea>
@@ -68,6 +105,29 @@
     const noteBtn = root.getElementById('noteBtn');
     root.getElementById('ico').innerHTML = window.Icons?.sparkle || '✦';
     root.getElementById('ico2').innerHTML = window.Icons?.pencil || '✎';
+
+    // Build the colour swatches from the shared palette.
+    const sw = root.getElementById('sw');
+    for (const [name, def] of Object.entries(window.HighlightStyle.HIGHLIGHT_COLORS)) {
+      const dot = document.createElement('b');
+      dot.style.background = def.light;
+      dot.title = def.label;
+      dot.dataset.color = name;
+      dot.addEventListener('mousedown', e => e.preventDefault());
+      dot.addEventListener('click', (e) => {
+        e.preventDefault();
+        setColor(name);
+        // Picking a colour on an existing highlight recolours it in place.
+        if (activeMarkId) recolorHighlight(activeMarkId, name);
+      });
+      sw.appendChild(dot);
+    }
+    paintSwatches();
+
+    root.getElementById('boldBtn').addEventListener('mousedown', e => e.preventDefault());
+    root.getElementById('boldBtn').addEventListener('click', e => { e.preventDefault(); emphasiseSelection(); });
+    root.getElementById('markNoteBtn').addEventListener('mousedown', e => e.preventDefault());
+    root.getElementById('markNoteBtn').addEventListener('click', e => { e.preventDefault(); noteForActiveMark(); });
 
     saveBtn.addEventListener('mousedown', e => e.preventDefault());
     noteBtn.addEventListener('mousedown', e => e.preventDefault());
@@ -99,10 +159,15 @@
     if (lastRect) pos(lastRect);
   }
 
-  function show(rect) {
+  function show(rect, markId) {
     ensureBubble();
     saveCtx = null; // new selection: never reuse the previous capture's context
     lastRect = rect;
+    activeMarkId = markId || null;
+    // Inside an existing highlight the save controls are wrong; offer the
+    // second-pass actions instead.
+    root.querySelector('.bar').classList.toggle('off', !!activeMarkId);
+    root.getElementById('markBar').classList.toggle('on', !!activeMarkId);
     pos(rect);
     wrap.classList.add('on');
     const lbl = root.getElementById('lbl');
@@ -134,13 +199,13 @@
     saveCtx = ok ? ctx : null;
   }
 
-  function openComment() {
+  function openComment(initial) {
     if (!root) return;
     commenting = true;
     const cm = root.getElementById('cm');
     const ta = root.getElementById('ta');
     cm.classList.add('on');
-    ta.value = '';
+    ta.value = initial || '';
     reposition(); // the bubble just got taller; keep it against the selection and onscreen
     setTimeout(() => ta.focus(), 50);
 
@@ -180,7 +245,10 @@
       const r = s.getRangeAt(0);
       const rc = r.getBoundingClientRect();
       if (rc.width === 0 && rc.height === 0) return;
-      show(rc);
+      const container = r.commonAncestorContainer;
+      const el = container.nodeType === 1 ? container : container.parentElement;
+      const mark = el && el.closest ? el.closest(`mark.${MARK_CLASS}`) : null;
+      show(rc, mark && mark.getAttribute('data-highlight-id'));
     }, DEBOUNCE_MS);
   });
 
@@ -218,9 +286,9 @@
       const anchor = window.Anchor.serializeAnchor(range, document.body);
       const text = range.toString();
       if (!text || !text.trim()) { flash(false); hideT = setTimeout(hide, 1000); return; }
-      payload = { text, anchor: anchor || { exact: text, prefix: '', suffix: '' }, url: location.href, pageTitle: document.title || location.href };
+      payload = { text, anchor: anchor || { exact: text, prefix: '', suffix: '' }, url: location.href, pageTitle: document.title || location.href, color: currentColor };
     } else if (lastText.trim()) {
-      payload = { text: lastText, anchor: { exact: lastText, prefix: '', suffix: '' }, url: location.href, pageTitle: document.title || location.href };
+      payload = { text: lastText, anchor: { exact: lastText, prefix: '', suffix: '' }, url: location.href, pageTitle: document.title || location.href, color: currentColor };
     } else {
       flash(false); hideT = setTimeout(hide, 1000); return;
     }
@@ -261,10 +329,54 @@
     if (!h || !h.anchor) return false;
     if (document.querySelector(`mark.${MARK_CLASS}[data-highlight-id="${h.id}"]`)) return true;
     const range = window.Anchor.resolveAnchor(h.anchor, document.body);
-    return range ? wrapRange(range, h.id) : false;
+    if (!range) return false;
+    const painted = wrapRange(range, h.id, window.HighlightStyle.colorOf(h));
+    if (painted) applyEmphasis(h);
+    return painted;
   }
 
-  function wrapRange(range, id) {
+  // Wrap the emphasised runs of a painted highlight in <strong>, so the part
+  // of a quote that mattered most shows on the live page, not only in the
+  // reader. A highlight may be painted as several <mark> elements when it
+  // spans inline markup, so each mark takes the slice of the runs it covers.
+  function applyEmphasis(h) {
+    if (!h.emphasis || !h.emphasis.length) return;
+    const marks = [...document.querySelectorAll(`mark.${MARK_CLASS}[data-highlight-id="${h.id}"]`)];
+    if (!marks.length) return;
+    const runs = window.HighlightStyle.emphasisRuns(h.text || '', h.emphasis);
+    let consumed = 0;
+    for (const m of marks) {
+      const length = m.textContent.length;
+      const frag = document.createDocumentFragment();
+      for (const part of sliceRuns(runs, consumed, consumed + length)) {
+        if (part.strong && part.text.trim()) {
+          const strong = document.createElement('strong');
+          strong.textContent = part.text;
+          frag.appendChild(strong);
+        } else {
+          frag.appendChild(document.createTextNode(part.text));
+        }
+      }
+      m.textContent = '';
+      m.appendChild(frag);
+      consumed += length;
+    }
+  }
+
+  // The runs between two offsets of the combined highlight text.
+  function sliceRuns(runs, from, to) {
+    const out = [];
+    let at = 0;
+    for (const run of runs) {
+      const start = at, end = at + run.text.length;
+      at = end;
+      if (end <= from || start >= to) continue;
+      out.push({ text: run.text.slice(Math.max(0, from - start), Math.min(run.text.length, to - start)), strong: run.strong });
+    }
+    return out;
+  }
+
+  function wrapRange(range, id, color) {
     try {
       if (range.collapsed) return false;
       const nodes = textNodesIn(range);
@@ -275,6 +387,7 @@
         const m = document.createElement('mark');
         m.className = MARK_CLASS;
         m.setAttribute('data-highlight-id', id);
+        if (color) m.setAttribute('data-color', color);
         mid.parentNode.insertBefore(m, mid);
         m.appendChild(mid);
       }
@@ -340,6 +453,87 @@
       watchForLateContent(unresolved);
       showPresence(note, highlights.length, highlights.length - unresolved.length);
     } catch (e) { if (isCtxOk()) console.error('Offline Notes: repaint failed', e); }
+  }
+
+  // ---- Actions on an existing highlight ----
+
+  // Offsets of the current selection within the highlight's own text, so
+  // emphasis travels with the quote instead of the page.
+  function selectionOffsetsInMark(markId) {
+    const marks = [...document.querySelectorAll(`mark.${MARK_CLASS}[data-highlight-id="${markId}"]`)];
+    if (!marks.length) return null;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+
+    // Walk the marks' text nodes counting characters until the selection.
+    let consumed = 0, start = -1, end = -1;
+    for (const m of marks) {
+      const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n === range.startContainer) start = consumed + range.startOffset;
+        if (n === range.endContainer) end = consumed + range.endOffset;
+        consumed += n.data.length;
+      }
+    }
+    if (start < 0 || end < 0 || end <= start) return null;
+    return { start, end };
+  }
+
+  async function emphasiseSelection() {
+    if (!activeMarkId) return;
+    const offsets = selectionOffsetsInMark(activeMarkId);
+    if (!offsets) { flashLabel('Select inside the highlight'); return; }
+    try {
+      const r = await send({ type: 'EMPHASISE_HIGHLIGHT', highlightId: activeMarkId, url: location.href,
+        start: offsets.start, end: offsets.end });
+      if (!r || !r.ok) throw new Error((r && r.error) || 'failed');
+      window.getSelection().removeAllRanges();
+      hide();
+      await repaintHighlight(activeMarkId);
+    } catch (err) {
+      flashLabel('Could not save');
+    }
+  }
+
+  async function recolorHighlight(id, color) {
+    try {
+      await send({ type: 'RECOLOR_HIGHLIGHT', highlightId: id, url: location.href, color });
+      document.querySelectorAll(`mark.${MARK_CLASS}[data-highlight-id="${id}"]`)
+        .forEach((m) => m.setAttribute('data-color', color));
+    } catch (_) {}
+  }
+
+  async function noteForActiveMark() {
+    if (!activeMarkId) return;
+    const r = await send({ type: 'GET_PAGE_NOTE', url: location.href }).catch(() => null);
+    const note = r && r.pageNote;
+    const h = note && (note.highlights || []).find((x) => x.id === activeMarkId);
+    saveCtx = { pn: note.id, hl: activeMarkId };
+    openComment(h && h.comment ? h.comment : '');
+  }
+
+  // Re-read and repaint one highlight after it changed.
+  async function repaintHighlight(id) {
+    const r = await send({ type: 'GET_PAGE_NOTE', url: location.href }).catch(() => null);
+    const h = r && r.pageNote && (r.pageNote.highlights || []).find((x) => x.id === id);
+    if (!h) return;
+    document.querySelectorAll(`mark.${MARK_CLASS}[data-highlight-id="${id}"]`).forEach((m) => {
+      const parent = m.parentNode;
+      while (m.firstChild) parent.insertBefore(m.firstChild, m);
+      m.remove();
+      parent.normalize();
+    });
+    paintHighlight(h);
+  }
+
+  function flashLabel(text) {
+    const lbl = root && root.getElementById('lbl');
+    if (!lbl) return;
+    const previous = lbl.textContent;
+    lbl.textContent = text;
+    setTimeout(() => { lbl.textContent = previous; }, 1400);
   }
 
   // ---- Presence pill ----

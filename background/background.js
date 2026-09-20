@@ -141,6 +141,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     DELETE_HIGHLIGHT: (m) => pageStorage.deleteHighlight(m.pageNoteId, m.highlightId),
     DELETE_PAGE_NOTE: (m) => pageStorage.deletePageNote(m.pageNoteId),
     CLEAR_SAVED_CONTENT: (m) => pageStorage.clearSavedContent(m.pageNoteId),
+    EMPHASISE_HIGHLIGHT: (m) => pageStorage.emphasiseHighlight(m.url, m.highlightId, m.start, m.end),
+    RECOLOR_HIGHLIGHT: (m) => pageStorage.recolorHighlight(m.url, m.highlightId, m.color),
+    SET_SUMMARY: (m) => pageStorage.setSummary(m.pageNoteId, m.summary),
     SAVE_NOTE: (m) => noteStorage.saveNote(m.note),
     UPDATE_NOTE: (m) => noteStorage.updateNote(m.id, m.updates),
     DELETE_NOTE: (m) => noteStorage.deleteNote(m.id),
@@ -169,6 +172,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           text: p.text || '',
           anchor: p.anchor || { exact: p.text || '', prefix: '', suffix: '' },
           comment: p.comment || '',
+          color: p.color || 'yellow',
           capturedAt: new Date().toISOString(),
         };
         const pageNote = await pageStorage.appendHighlight(p.url, p.pageTitle, highlight);

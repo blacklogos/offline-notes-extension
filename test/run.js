@@ -34,7 +34,7 @@ function ok(value, what) {
   if (!value) throw new Error(`${what || 'value'}: expected truthy, got ${JSON.stringify(value)}`);
 }
 
-const suites = ['text-locate.test.js', 'page-content.test.js', 'write-queue.test.js', 'backup.test.js'];
+const suites = ['text-locate.test.js', 'page-content.test.js', 'write-queue.test.js', 'backup.test.js', 'highlight-style.test.js'];
 const api = { test, eq, ok, root: path.join(__dirname, '..') };
 
 (async () => {

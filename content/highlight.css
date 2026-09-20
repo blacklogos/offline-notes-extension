@@ -7,7 +7,7 @@
  */
 
 mark.offline-notes-highlight {
-  background-color: #F4E4A1 !important;
+  background-color: #F4E4A1 !important;   /* default; overridden per colour below */
   color: #2A2622 !important;
   padding: 1px 3px;
   border-radius: 2px;
@@ -19,4 +19,17 @@ mark.offline-notes-highlight {
 
 mark.offline-notes-highlight.offline-notes-flash {
   box-shadow: 0 0 0 4px rgba(124, 152, 133, 0.6);
+}
+
+/* Colours. Duplicated from lib/highlight-style.js because this stylesheet is
+   injected into host pages and cannot import it; keep the two in sync. */
+mark.offline-notes-highlight[data-color="green"]  { background-color: #C5DCC0 !important; }
+mark.offline-notes-highlight[data-color="blue"]   { background-color: #BFD4E8 !important; }
+mark.offline-notes-highlight[data-color="pink"]   { background-color: #EFC8CE !important; }
+mark.offline-notes-highlight[data-color="purple"] { background-color: #D6C9E6 !important; }
+
+/* Forte's third layer: the part of the quote that matters most. */
+mark.offline-notes-highlight strong {
+  font-weight: 700 !important;
+  color: inherit !important;
 }

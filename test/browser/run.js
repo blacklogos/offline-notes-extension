@@ -78,15 +78,87 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       eq(v.url, ARTICLE, 'stored against the page URL');
     });
 
+    await test('a colour picked in the bubble is stored and painted', async () => {
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const p = [...document.querySelectorAll('p')].filter(x => x.offsetHeight > 0 && x.innerText.trim().length > 200)[1];
+          const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 80);
+          const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await sleep(900);
+          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
+          const swatches = sr.querySelectorAll('.sw b').length;
+          sr.querySelector('.sw b[data-color="green"]').click();
+          await sleep(250);
+          sr.getElementById('saveBtn').click();
+          await sleep(1800);
+          const marks = [...document.querySelectorAll('.offline-notes-highlight')];
+          const green = marks.find(m => m.getAttribute('data-color') === 'green');
+          return { swatches, painted: !!green, bg: green && getComputedStyle(green).backgroundColor };
+        }});
+        await new Promise(r => setTimeout(r, 800));
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const n = Object.values(s.offline_page_notes)[0];
+        return JSON.stringify({ ui: res[0].result, colors: n.highlights.map(h => h.color) });
+      `);
+      const v = JSON.parse(r);
+      eq(v.ui.swatches, 5, 'five colours offered');
+      ok(v.ui.painted, 'the green highlight is painted');
+      eq(v.ui.bg, 'rgb(197, 220, 192)', 'painted in the green from the palette');
+      ok(v.colors.includes('green'), `stored colours: ${JSON.stringify(v.colors)}`);
+    });
+
+    await test('selecting inside a highlight offers Bold, and it persists', async () => {
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const mark = document.querySelector('.offline-notes-highlight');
+          const tn = [...mark.childNodes].find(n => n.nodeType === 3);
+          const range = document.createRange(); range.setStart(tn, 5); range.setEnd(tn, 20);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await sleep(900);
+          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
+          const out = {
+            selected: range.toString(),
+            saveBarHidden: sr.querySelector('.bar').classList.contains('off'),
+            markBarShown: sr.getElementById('markBar').classList.contains('on'),
+          };
+          sr.getElementById('boldBtn').click();
+          await sleep(2200);
+          out.strongCount = document.querySelectorAll('.offline-notes-highlight strong').length;
+          out.strongText = (document.querySelector('.offline-notes-highlight strong') || {}).textContent;
+          return out;
+        }});
+        await new Promise(r => setTimeout(r, 800));
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const n = Object.values(s.offline_page_notes)[0];
+        return JSON.stringify({ ui: res[0].result, emphasis: n.highlights.map(h => h.emphasis || null) });
+      `);
+      const v = JSON.parse(r);
+      // Selecting inside an existing highlight must not offer Save: that used
+      // to store a second overlapping copy that could never be painted.
+      ok(v.ui.saveBarHidden, 'save controls hidden inside a highlight');
+      ok(v.ui.markBarShown, 'Bold and Note offered instead');
+      ok(v.emphasis.some(e => e && e.length), `emphasis stored: ${JSON.stringify(v.emphasis)}`);
+      ok(v.ui.strongCount > 0, 'emphasis painted as bold on the page');
+      eq(v.ui.strongText, v.ui.selected, 'the bolded text is what was selected');
+    });
+
     await test('saved highlights repaint on revisit', async () => {
       await browser.reload(ARTICLE);
       const r = await browser.eval(sw, `
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
         const res = await chrome.scripting.executeScript({ target: { tabId: tab.id },
           func: () => document.querySelectorAll('.offline-notes-highlight').length });
-        return String(res[0].result);
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const n = Object.values(s.offline_page_notes)[0];
+        return JSON.stringify({ marks: res[0].result, stored: n.highlights.length });
       `);
-      eq(Number(r), 1, 'marks after reload');
+      const v = JSON.parse(r);
+      eq(v.marks, v.stored, 'every stored highlight repaints');
     });
 
     await test('the in-page indicator reports what the page can show', async () => {
@@ -147,7 +219,7 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
         });
       `);
       const v = JSON.parse(r);
-      eq(v.marks, 1, 'highlight located in the snapshot');
+      ok(v.marks >= 1, `highlights located in the snapshot (got ${v.marks})`);
       ok(v.headings > 0, 'structure rendered');
       eq(v.images, 0, 'no remote images');
       eq(v.iframes, 0, 'no embeds');
@@ -157,6 +229,7 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
 
     await test('highlighting in the reader saves to the source page', async () => {
       const r = await browser.eval('reader/reader.html?page', `
+        const pre = Object.values((await chrome.storage.local.get('offline_page_notes')).offline_page_notes)[0].highlights.length;
         const body = document.getElementById('articleBody');
         const p = [...body.querySelectorAll('p')].find(el => !el.querySelector('mark') && el.textContent.length > 220);
         const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 120);
@@ -168,12 +241,12 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
         await new Promise(r => setTimeout(r, 1800));
         const s = await chrome.storage.local.get('offline_page_notes');
         const notes = Object.values(s.offline_page_notes);
-        return JSON.stringify({ pageNotes: notes.length, urls: notes.map(n => n.url), highlights: notes[0].highlights.length });
+        return JSON.stringify({ pageNotes: notes.length, urls: notes.map(n => n.url), highlights: notes[0].highlights.length, before: pre });
       `);
       const v = JSON.parse(r);
       eq(v.pageNotes, 1, 'must not create a note for the extension URL');
       eq(v.urls[0], ARTICLE, 'attached to the source page');
-      eq(v.highlights, 2, 'reader capture stored');
+      ok(v.highlights > v.before, `reader capture stored (${v.before} -> ${v.highlights})`);
     });
 
     await test('a selection dragged across paragraphs is located, not lost', async () => {
