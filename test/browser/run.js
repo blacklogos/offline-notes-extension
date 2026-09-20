@@ -176,6 +176,38 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       eq(v.highlights, 2, 'reader capture stored');
     });
 
+    await test('a selection dragged across paragraphs is located, not lost', async () => {
+      const r = await browser.eval('reader/reader.html?page', `
+        const body = document.getElementById('articleBody');
+        const ps = [...body.querySelectorAll('p')].filter(el => !el.querySelector('mark') && el.textContent.length > 120);
+        const first = ps[0], second = ps[1];
+        const a = [...first.childNodes].find(n => n.nodeType === 3);
+        const b = [...second.childNodes].find(n => n.nodeType === 3);
+        // Span two separate block elements, which is what the user did.
+        const range = document.createRange();
+        range.setStart(a, Math.max(0, a.data.length - 40));
+        range.setEnd(b, Math.min(40, b.data.length));
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        const selectionString = range.toString();
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise(r => setTimeout(r, 400));
+        document.getElementById('selHighlight').click();
+        await new Promise(r => setTimeout(r, 1800));
+        const lostItems = document.querySelectorAll('.rail-item.is-lost').length;
+        const marks = body.querySelectorAll('mark.rd-mark').length;
+        const stored = Object.values((await chrome.storage.local.get('offline_page_notes')).offline_page_notes)[0];
+        const newest = stored.highlights[stored.highlights.length - 1];
+        return JSON.stringify({ selectionString, storedQuote: newest.text, lostItems, marks });
+      `);
+      const v = JSON.parse(r);
+      // The selection really does arrive with the blank line missing...
+      ok(!/\n/.test(v.selectionString), 'selection string has no block separator');
+      // ...but what gets stored is the article slice, which keeps it.
+      ok(/\n/.test(v.storedQuote), 'stored quote keeps the block separator');
+      eq(v.lostItems, 0, 'nothing should land under "Not located"');
+      ok(v.marks > 2, `cross-paragraph highlight painted (got ${v.marks} marks)`);
+    });
+
     await test('simultaneous captures from two contexts all survive', async () => {
       await browser.openTab(`chrome-extension://${id}/sidebar/sidebar.html`);
       await sleep(2000);

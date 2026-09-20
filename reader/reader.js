@@ -233,8 +233,13 @@
     const text = (note.savedContent && note.savedContent.text) || '';
     const start = window.ReaderArticle.offsetOf(el.body, range.startContainer, range.startOffset);
     const end = window.ReaderArticle.offsetOf(el.body, range.endContainer, range.endOffset);
-    const exact = range.toString();
-    const anchor = (start >= 0 && end > start)
+    // Take the quote from the article text by offset, not from the selection.
+    // range.toString() concatenates across block elements with no separator,
+    // so a selection dragged over two paragraphs yields "...hereStarts..."
+    // which does not appear in the stored text and cannot be located later.
+    const usable = start >= 0 && end > start;
+    const exact = usable ? text.slice(start, end) : range.toString();
+    const anchor = usable
       ? { exact, prefix: text.slice(Math.max(0, start - 32), start), suffix: text.slice(end, end + 32) }
       : { exact, prefix: '', suffix: '' };
     hideBubble();
