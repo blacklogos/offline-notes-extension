@@ -17,32 +17,52 @@
       <button id="openSidebar" class="icon-btn" title="Open full notes manager" data-icon="chevronRight"></button>
     </header>
 
-    <form id="noteForm">
-      <input
-        type="text"
-        id="noteTitle"
-        placeholder="Title…"
-        autocomplete="off"
-        maxlength="100"
-      >
+    <!-- Current page context: the reader's main entry point. Sits above the
+         composer but never takes focus from it. -->
+    <div id="pageContext" class="page-context hidden">
+      <div class="page-context-line">
+        <span id="pageContextTitle" class="page-context-title"></span>
+        <span id="pageContextMeta" class="page-context-meta"></span>
+      </div>
+      <div class="page-context-actions">
+        <button id="pageRead" class="btn btn-primary btn-sm">Read offline</button>
+        <button id="pageSaveRead" class="btn btn-secondary btn-sm">Save &amp; read</button>
+      </div>
+    </div>
 
+    <form id="noteForm">
       <textarea
         id="noteContent"
-        placeholder="Write your note here…&#10;Supports markdown — **bold** *italic* `code`"
-        rows="8"
+        placeholder="Write a note…"
+        aria-label="Note content"
+        aria-describedby="formatHint"
+        rows="7"
         autocomplete="off"
       ></textarea>
 
-      <div class="tags-input">
+      <div class="note-options">
+        <label for="noteTitle">Title</label>
+        <input
+          type="text"
+          id="noteTitle"
+          placeholder="From first line"
+          aria-label="Title (optional)"
+          autocomplete="off"
+          maxlength="100"
+        >
+
+        <label for="tagInput">Tags</label>
         <input
           type="text"
           id="tagInput"
-          placeholder="Add tags (comma separated)…"
+          placeholder="Add tags, comma separated"
+          aria-label="Tags (optional, comma separated)"
           autocomplete="off"
         >
       </div>
 
       <div class="button-group">
+        <span id="formatHint" class="format-hint">Markdown supported</span>
         <button type="submit" class="btn btn-primary">
           <span data-icon="check"></span>
           Save note
@@ -51,19 +71,20 @@
       </div>
     </form>
 
-    <div id="successMessage" class="success-message hidden">
-      <span data-icon="check"></span>
-      Saved
-    </div>
-
     <footer class="footer">
       <span id="noteCount">0 notes</span>
       <span class="separator">·</span>
       <span>Stored locally</span>
+      <span id="successMessage" class="success-message hidden" role="status">
+        <span data-icon="check"></span>
+        Saved
+      </span>
     </footer>
   </div>
 
+  <script src="../lib/theme.js"></script>
   <script src="../lib/icons.js"></script>
+  <script src="../lib/write-queue.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="popup.js"></script>
 </body>

@@ -15,7 +15,10 @@ No build/lint/test commands. Iteration loop:
 3. Hit the reload button on the extension card in `chrome://extensions/` to pick up changes (required for `background/background.js` and `manifest.json`; popup/sidebar HTML usually refreshes on reopen).
 4. For popup/sidebar JS changes, close and reopen the popup or side panel.
 
-"Tests" are manual HTML harnesses opened directly in a browser — they are not automated:
+`node test/run.js` runs the logic tests: quote location, article extraction and
+write serialization. No dependencies. Browser behaviour is not covered there.
+
+The remaining harnesses are manual, opened directly in a browser:
 - `test-image-generation.html` — exercises `lib/image-generator.js` + `lib/templates.js` via html2canvas.
 - `test-templates.html` — visual preview of the 5 image templates.
 - `generate-icons.html` — one-off tool to regenerate `images/` icons.
@@ -28,13 +31,20 @@ Three entry points, all sharing the `lib/` modules via plain `<script>` tags (no
 
 - **`popup/`** — `action.default_popup`. Quick-capture UI bound to `Alt+N`.
 - **`sidebar/`** — `side_panel.default_path`. Full note manager (list, search, tag filter, editor, export). Bound to `Alt+Shift+N`.
-- **`background/background.js`** — service worker. Only responsibility is routing the two `chrome.commands` shortcuts (`quick-note`, `open-sidebar`) and opening the side panel on install. It does **not** broker data between popup and sidebar — both read/write `chrome.storage.local` directly through `StorageManager`.
+- **`background/background.js`** — service worker, and the **single writing context** for both collections. Routes the `chrome.commands` shortcuts (`quick-note`, `open-sidebar`, `save-highlight`, `save-page`), registers the context menus, keeps the per-tab badge, captures readable page text, and owns every mutation. Other surfaces read `chrome.storage.local` directly but send a message to mutate (`SAVE_HIGHLIGHT`, `UPDATE_HIGHLIGHT_COMMENT`, `SAVE_NOTE`, `DELETE_PAGE_NOTE`, …). That is deliberate: mutations are read-modify-write over a whole collection, and an in-memory queue cannot serialize across separate JS contexts.
+- **`reader/`** — `reader/reader.html?page=<pageNoteId>`, opened in a tab. Renders a saved article with its highlights, and captures new ones against the source page note.
 
 Shared library layer (`lib/`), each file defines a class on the global scope:
 
 - **`storage.js`** — `StorageManager`. Single source of truth for notes. All CRUD goes through `chrome.storage.local` under key `offline_notes` (settings under `offline_notes_settings`). Note shape: `{ id, title, content, tags[], createdAt, updatedAt }`. IDs are generated client-side. Both popup and sidebar instantiate their own `StorageManager` — there is no in-memory cache, so a write in one surface is visible to the other on next read.
 - **`markdown.js`** — serializes a note to `.md` with a frontmatter-ish header block.
-- **`templates.js`** — 5 HTML-string templates (`default`, `minimal`, `card`, `quote`, `modern`) keyed by name. Templates use inline styles and must `escapeHtml()` user content — XSS prevention lives here, not at render time.
+- **`write-queue.js`** — serializes mutations within a context. Public mutations on both storage classes hold it across their whole read-modify-write span.
+- **`page-storage.js`** — `PageNoteStorage`, page notes keyed by canonical URL under `offline_page_notes`. Shape: `{id, url, pageTitle, highlights[], savedContent?, createdAt, updatedAt}`.
+- **`page-content.js`** + **`readability.js`** — readable article extraction, injected on demand by the service worker, never declared as content scripts.
+- **`text-locate.js`** — finds a stored quote inside the rebuilt article text. Both sides are normalized because the snapshot's whitespace and punctuation differ from the live DOM.
+- **`vault.js`** — mirrors notes to a folder chosen via the File System Access API. Write-only, sidebar-driven, because `showDirectoryPicker` needs a document and a gesture.
+- **`theme.js`** — paper/white theme switch.
+- **`templates.js`** — 5 HTML-string templates (`paper-default`, `paper-minimal`, `paper-card`, `paper-quote`, `paper-letterhead`) keyed by name. Templates use inline styles and must `escapeHtml()` user content — XSS prevention lives here, not at render time.
 - **`image-generator.js`** — wraps `html2canvas` (bundled locally at `lib/html2canvas.min.js`, not a CDN) to render a template to a 2x PNG and trigger download.
 
 ### Key constraints

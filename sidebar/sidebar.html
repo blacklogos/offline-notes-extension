@@ -14,24 +14,26 @@
         <span class="brand-glyph" data-icon="notebook"></span>
         My Notes
       </h1>
+      <nav class="tab-strip" role="tablist" aria-label="Note type">
+        <button class="tab-btn active" role="tab" data-tab="notes" aria-selected="true">Notes</button>
+        <button class="tab-btn" role="tab" data-tab="pages" aria-selected="false">Pages</button>
+      </nav>
       <div class="header-actions">
+        <button id="themeToggle" class="icon-btn" title="Switch theme" aria-label="Switch theme">Aa</button>
         <button id="exportAllMd" class="icon-btn" title="Export all notes to Markdown" data-icon="copy"></button>
       </div>
     </header>
-
-    <nav class="tab-strip" role="tablist">
-      <button class="tab-btn active" role="tab" data-tab="notes" aria-selected="true">Notes</button>
-      <button class="tab-btn" role="tab" data-tab="pages" aria-selected="false">Pages</button>
-    </nav>
 
     <!-- Notes tab panel -->
     <section class="tab-panel active" data-panel="notes" role="tabpanel">
       <div class="search-bar">
         <span class="search-icon" data-icon="search"></span>
-        <input type="text" id="searchInput" placeholder="Search notes…">
+        <input type="text" id="searchInput" placeholder="Search notes…" aria-label="Search notes">
+        <details id="tagMenu" class="tag-menu hidden">
+          <summary><span id="tagSummary">Tags</span><span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span></summary>
+          <div id="tagFilter" class="tag-filter hidden" role="group" aria-label="Filter by tag"></div>
+        </details>
       </div>
-
-      <div id="tagFilter" class="tag-filter hidden"></div>
 
       <div id="notesList" class="notes-list"></div>
 
@@ -58,6 +60,18 @@
         <p>Select text on any page, then click the <strong>Save</strong> bubble or press <kbd>Alt+H</kbd>.</p>
       </div>
     </section>
+    <details id="vaultBar" class="vault-bar hidden">
+      <summary>
+        <span class="vault-icon" data-icon="notebook" aria-hidden="true"></span>
+        <span id="vaultStatus" class="vault-status" role="status">Not connected</span>
+        <span class="vault-label">Vault</span>
+        <span class="disclosure-icon" data-icon="chevronRight" aria-hidden="true"></span>
+      </summary>
+      <div class="vault-controls">
+        <button id="vaultAction" class="btn btn-secondary btn-sm">Choose folder</button>
+        <button id="vaultForget" class="btn-link hidden" title="Stop writing to this folder">Forget</button>
+      </div>
+    </details>
   </div>
 
   <!-- Note edit modal -->
@@ -123,6 +137,17 @@
         <button id="copyPageUrl" class="icon-btn" title="Copy URL" data-icon="link"></button>
       </div>
 
+      <div id="readerPanel" class="reader-panel hidden">
+        <div class="reader-state">
+          <span id="readerSummary">Saved article</span>
+          <span id="readerMeta" class="reader-meta"></span>
+        </div>
+        <div class="reader-actions">
+          <button id="openReader" class="btn btn-primary btn-sm">Read offline</button>
+          <button id="clearSavedContent" class="btn-link">Remove saved text</button>
+        </div>
+      </div>
+
       <div class="highlight-toolbar">
         <label><input type="checkbox" class="hl-checkbox" id="selectAllHighlights"> Select all</label>
         <span class="spacer"></span>
@@ -150,7 +175,9 @@
   </div>
 
   <script src="../lib/html2canvas.min.js"></script>
+  <script src="../lib/theme.js"></script>
   <script src="../lib/icons.js"></script>
+  <script src="../lib/write-queue.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/url-canonical.js"></script>
   <script src="../lib/page-storage.js"></script>
@@ -158,6 +185,7 @@
   <script src="../lib/templates.js"></script>
   <script src="../lib/image-generator.js"></script>
   <script src="../lib/page-note-export.js"></script>
+  <script src="../lib/vault.js"></script>
   <script src="sidebar.js"></script>
 </body>
 </html>

@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Offline Notes - Local Markdown & Image Creator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Create notes offline, save highlights from any page, export to Markdown, generate images. All data stored locally.",
   "permissions": [
     "storage",
     "sidePanel",
     "tabs",
     "scripting",
-    "contextMenus"
+    "contextMenus",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -37,9 +38,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["lib/icons.js", "lib/url-canonical.js", "lib/anchor.js", "content/highlight.js"],
-      "css": ["content/highlight.css"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "lib/icons.js",
+        "lib/url-canonical.js",
+        "lib/anchor.js",
+        "content/highlight.js"
+      ],
+      "css": [
+        "content/highlight.css"
+      ],
       "run_at": "document_idle",
       "all_frames": false
     }
@@ -65,6 +76,13 @@
         "mac": "Alt+H"
       },
       "description": "Save highlighted text from current page"
+    },
+    "save-page": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Save readable page text to Offline Notes"
     }
   }
 }

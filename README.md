@@ -2,17 +2,19 @@
 
 A powerful, privacy-focused Chrome extension for taking notes offline. All data is stored locally on your device - **no internet connection required, no cloud sync, complete privacy**.
 
-> **✅ v1.0.3 - All Critical Bugs Fixed!** Image generation now works perfectly with local html2canvas. See [CHANGELOG.md](CHANGELOG.md) for details.
+> **v1.2.0** — Save articles for offline reading, read them in a dedicated
+> reader with your highlights in place, and mirror everything to a folder of
+> Markdown on your disk. See [CHANGELOG.md](CHANGELOG.md).
 
 ## ✨ Features
 
 ### Core Functionality
-- ✍️ **Quick Note Taking** - Fast popup interface for capturing ideas
-- 📚 **Full Note Management** - Comprehensive sidebar for organizing notes
-- 🏷️ **Tags & Search** - Organize with tags and powerful search
-- ✨ **Highlight Capture** - Select text on any page, save it with one click. Highlights re-paint on revisit and collect into a per-URL "page note."
-- 💾 **100% Offline** - All data stored locally using Chrome Storage API
-- 🔒 **Privacy First** - No data leaves your computer
+- ✨ **Highlight capture** - Select text on any page and save it with one click. Highlights re-paint on revisit and collect into a per-URL page note, each with an optional comment.
+- 📄 **Save the article** - `Alt+S` stores a page's readable text, so a quote outlives the page it came from.
+- 📖 **Offline reader** - Read a saved article in its own tab with your highlights in place, in serif or sans, light or dark. Highlighting while you read saves to the source page.
+- 📁 **Markdown folder** - Mirror every note to a folder on your disk, readable by Obsidian, Spotlight, grep and git.
+- ✍️ **Quick notes** - Popup capture, plus a sidebar for organizing, tagging and searching.
+- 💾 **100% offline** - Everything in `chrome.storage.local`. No account, no server, no sync, no AI, no analytics, and no network requests of any kind.
 
 ### Export Options
 - 📄 **Markdown Export** - Export individual notes or all notes to `.md` files
@@ -37,9 +39,16 @@ This extension was built using **Test-Driven Development (TDD)** principles:
 
 **Run Tests:**
 ```bash
-open test-image-generation.html  # Comprehensive automated test suite
+node test/run.js                 # Logic tests, no dependencies
+open test-image-generation.html  # Image generation, manual harness
 open test-templates.html         # Template preview tool
 ```
+
+`node test/run.js` covers the pure logic where the subtle bugs live: locating
+a stored quote inside a reshaped article snapshot, article extraction and
+block offsets, and write serialization. Browser behaviour (highlight repaint,
+the capture bubble, the reader UI) is not covered and still needs a real
+Chrome.
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 
@@ -136,7 +145,8 @@ offline-notes-extension/
 
 ### Technologies Used
 - **Chrome Extension Manifest V3**
-- **html2canvas 1.4.1** - HTML to canvas conversion
+- **html2canvas 1.4.1** - HTML to canvas conversion (vendored, Apache-2.0)
+- **Readability.js** - readable article extraction, from Mozilla (vendored, Apache-2.0); injected on demand, not on every page load
 - **Chrome Storage API** - Local data storage
 - **Inter Display Fonts** - Beautiful typography
 - **Vanilla JavaScript** - No heavy frameworks
@@ -236,20 +246,19 @@ The `StorageManager` class in `/lib/storage.js` provides:
 - `getAllNotes()` - Get all notes
 - `searchNotes(query)` - Search notes
 - `getNotesByTag(tag)` - Filter by tag
-- `exportAllData()` - Backup data
+- `exportAllData()` - Backup data (manual notes, page notes and settings)
 - `importData(data)` - Restore data
 
 ## 🐛 Troubleshooting
 
 ### Images not generating?
 - Make sure html2canvas is loaded (check browser console)
-- The extension loads it from CDN - internet needed for first load only
-- Alternatively, extract from Save.day extension's `index.js`
+- It is vendored locally at `lib/html2canvas.min.js`; nothing is fetched from a CDN and no internet connection is needed
 
 ### Notes not saving?
 - Check Chrome Developer Tools console for errors
 - Verify storage permissions in manifest
-- Try clearing extension data and reinstalling
+- Export a backup first (Settings → export). Clearing extension data destroys your only copy
 
 ### Sidebar not opening?
 - Make sure you're using Chrome 114+ (Side Panel API requirement)

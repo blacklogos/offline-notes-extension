@@ -7,6 +7,9 @@ document.querySelectorAll('[data-icon]').forEach((el) => {
 // Initialize managers
 const storage = new StorageManager();
 const markdown = new MarkdownExporter();
+
+// Paint the stored theme before the first render.
+applyStoredTheme();
 const imageGen = new ImageGenerator();
 const pageStorage = new PageNoteStorage();
 
@@ -21,6 +24,8 @@ let currentPageNote = null;
 // DOM elements
 const searchInput = document.getElementById('searchInput');
 const tagFilter = document.getElementById('tagFilter');
+const tagMenu = document.getElementById('tagMenu');
+const tagSummary = document.getElementById('tagSummary');
 const notesList = document.getElementById('notesList');
 const emptyState = document.getElementById('emptyState');
 const noteModal = document.getElementById('noteModal');
@@ -42,9 +47,17 @@ loadNotes();
 // Load all notes
 async function loadNotes() {
   allNotes = await storage.getAllNotes();
-  filteredNotes = allNotes;
-  renderNotes();
+  await applyFilters();
   renderTags();
+}
+
+// Single filter path. Query and tag always intersect, and a background storage
+// refresh re-applies both instead of silently resetting the list to everything.
+async function applyFilters() {
+  const query = searchInput.value.trim();
+  const base = query ? await storage.searchNotes(query) : allNotes;
+  filteredNotes = selectedTag ? base.filter(note => note.tags.includes(selectedTag)) : base;
+  renderNotes();
 }
 
 // Render notes list
@@ -98,7 +111,7 @@ function createNoteCard(note) {
 
   const content = document.createElement('div');
   content.className = 'note-card-content';
-  content.textContent = note.content.substring(0, 150) + (note.content.length > 150 ? '...' : '');
+  content.textContent = notePreview(note.content, note.title);
 
   card.appendChild(header);
   card.appendChild(content);
@@ -120,12 +133,42 @@ function createNoteCard(note) {
   return card;
 }
 
+// Display-only text. Stored Markdown stays intact for editing and export.
+function notePreview(content, title) {
+  const plainText = (text) => text
+    .replace(/^\s*\[[^\]]+\]:\s+\S+.*$/gm, '')
+    .replace(/^\s*(?:`{3,}|~{3,}).*$/gm, '')
+    .replace(/!?\[([^\]]*)\]\((?:[^()\n]|\([^()\n]*\))*\)/g, '$1')
+    .replace(/!?\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .replace(/<(https?:\/\/[^>]+)>/g, '$1')
+    .replace(/<\/?[a-z][^>\n]*>/gi, '')
+    .replace(/^\s*(?:>\s*)+/gm, '')
+    .replace(/^\s{0,3}#{1,6}\s+(.+?)(?:\s+#+)?\s*$/gm, '$1')
+    .replace(/^\s*(?:[-*_]\s*){3,}$/gm, '')
+    .replace(/^\s*=+\s*$/gm, '')
+    .replace(/^\s*(?:[-+*]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/gm, '')
+    .replace(/(`+)(.*?)\1/g, '$2')
+    .replace(/(\*\*|__|~~)(?=\S)([\s\S]*?\S)\1/g, '$2')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/(^|\W)_([^_\n]+)_(?=\W|$)/g, '$1$2')
+    .replace(/\\([\\`*_{}\[\]()#+.!>~-])/g, '$1');
+  const lines = plainText(content || '').split('\n').map(line => line.trim()).filter(Boolean);
+  const normalize = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (lines.length && normalize(lines[0]) === normalize(plainText(title || ''))) lines.shift();
+  const preview = lines.join(' ').replace(/\s+/g, ' ').trim();
+  return preview.length > 160 ? preview.slice(0, 160).trimEnd() + '…' : preview;
+}
+
 // Render tag filter
 async function renderTags() {
   const tags = await storage.getAllTags();
+  tagSummary.textContent = selectedTag ? '#' + selectedTag : 'Tags';
+  tagMenu.classList.toggle('is-filtered', selectedTag !== null);
+  tagMenu.classList.toggle('hidden', tags.length === 0 && selectedTag === null);
 
-  if (tags.length === 0) {
+  if (tags.length === 0 && selectedTag === null) {
     tagFilter.classList.add('hidden');
+    tagMenu.open = false;
     return;
   }
 
@@ -133,7 +176,9 @@ async function renderTags() {
   tagFilter.innerHTML = '';
 
   // All notes chip
-  const allChip = document.createElement('div');
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.setAttribute('aria-pressed', selectedTag === null);
   allChip.className = 'tag-chip' + (selectedTag === null ? ' active' : '');
   allChip.textContent = 'All';
   allChip.onclick = () => filterByTag(null);
@@ -141,7 +186,9 @@ async function renderTags() {
 
   // Tag chips
   tags.forEach(tag => {
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.setAttribute('aria-pressed', selectedTag === tag);
     chip.className = 'tag-chip' + (selectedTag === tag ? ' active' : '');
     chip.textContent = '#' + tag;
     chip.onclick = () => filterByTag(tag);
@@ -152,31 +199,27 @@ async function renderTags() {
 // Filter notes by tag
 async function filterByTag(tag) {
   selectedTag = tag;
-
-  if (tag === null) {
-    filteredNotes = allNotes;
-  } else {
-    filteredNotes = await storage.getNotesByTag(tag);
-  }
-
-  renderNotes();
+  tagMenu.open = false;
+  tagMenu.querySelector('summary').focus();
+  await applyFilters();
   renderTags();
 }
 
 // Search notes
-searchInput.addEventListener('input', async (e) => {
-  const query = e.target.value.trim();
+searchInput.addEventListener('input', () => { applyFilters(); });
 
-  if (query === '') {
-    filteredNotes = selectedTag ? await storage.getNotesByTag(selectedTag) : allNotes;
-  } else {
-    const results = await storage.searchNotes(query);
-    filteredNotes = selectedTag
-      ? results.filter(note => note.tags.includes(selectedTag))
-      : results;
-  }
-
-  renderNotes();
+// Native disclosures stay keyboard-accessible and close without covering the list.
+document.addEventListener('click', (event) => {
+  document.querySelectorAll('.tag-menu[open], .vault-bar[open]').forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('.tag-menu[open], .vault-bar[open]').forEach((menu) => {
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
 });
 
 // Open note modal
@@ -191,12 +234,23 @@ function openNoteModal(note) {
 }
 
 // Close modal
-function closeNoteModal() {
+// `force` skips the dirty check; used by the save and delete paths, which have
+// already persisted (or discarded) the edits on purpose.
+function isNoteDirty() {
+  if (!currentNote) return false;
+  return modalTitle.value !== currentNote.title
+    || modalContent.value !== currentNote.content
+    || modalTags.value !== currentNote.tags.join(', ');
+}
+
+function closeNoteModal(force) {
+  if (!force && isNoteDirty() && !confirm('Discard unsaved changes to this note?')) return;
   noteModal.classList.add('hidden');
   currentNote = null;
 }
 
-closeModal.addEventListener('click', closeNoteModal);
+// Wrapped: a bare listener would pass the click Event as `force` and skip the check.
+closeModal.addEventListener('click', () => closeNoteModal());
 
 // Click outside modal to close
 noteModal.addEventListener('click', (e) => {
@@ -215,13 +269,13 @@ saveNote.addEventListener('click', async () => {
     .filter(tag => tag.length > 0);
 
   try {
-    await storage.updateNote(currentNote.id, {
+    await chrome.runtime.sendMessage({ type: 'UPDATE_NOTE', id: currentNote.id, updates: {
       title: modalTitle.value.trim() || 'Untitled',
       content: modalContent.value.trim(),
       tags
-    });
+    } });
 
-    closeNoteModal();
+    closeNoteModal(true);
     await loadNotes();
   } catch (error) {
     alert('Error saving note: ' + error.message);
@@ -234,8 +288,8 @@ deleteNote.addEventListener('click', async () => {
 
   if (confirm('Are you sure you want to delete this note?')) {
     try {
-      await storage.deleteNote(currentNote.id);
-      closeNoteModal();
+      await chrome.runtime.sendMessage({ type: 'DELETE_NOTE', id: currentNote.id });
+      closeNoteModal(true);
       await loadNotes();
     } catch (error) {
       alert('Error deleting note: ' + error.message);
@@ -315,8 +369,9 @@ document.addEventListener('keydown', (e) => {
     saveNote.click();
   }
 
-  // Ctrl/Cmd + F to focus search
-  if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+  // Ctrl/Cmd + F to focus search, but only when the search field is actually
+  // visible. On the Pages tab it is hidden, so let the browser keep its find.
+  if ((e.ctrlKey || e.metaKey) && e.key === 'f' && searchInput.offsetParent !== null) {
     e.preventDefault();
     searchInput.focus();
   }
@@ -353,6 +408,11 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.offline_page_notes) {
     loadPageNotes().then(() => {
       if (currentPageNote && !pageModal.classList.contains('hidden')) {
+        // Don't rebuild the modal out from under an open comment editor or a
+        // checkbox selection; the user would lose both without warning.
+        const busy = pageHighlightsHost.querySelector('textarea.comment-edit')
+          || pageHighlightsHost.querySelector('.hl-checkbox:checked');
+        if (busy) return;
         pageStorage.getById(currentPageNote.id).then((fresh) => {
           if (fresh) { currentPageNote = fresh; openPageModal(fresh); }
         });
@@ -458,6 +518,7 @@ function renderPageNotes() {
         <span class="host">${escapeHtml(hostOf(note.url))}</span>
         <span class="sep">·</span>
         <span class="count">${note.highlights.length} highlight${note.highlights.length === 1 ? '' : 's'}</span>
+        ${note.savedContent ? '<span class="sep">·</span><span class="saved-badge">Saved offline</span>' : ''}
         <span class="sep">·</span>
         <span class="time">${relativeTime(note.updatedAt)}</span>
       </div>
@@ -474,8 +535,46 @@ function openPageModal(note) {
   pageSourceLink.href = note.url;
   pageMetadataEl.textContent = `${note.highlights.length} highlight${note.highlights.length === 1 ? '' : 's'} · Updated ${relativeTime(note.updatedAt)}`;
   renderHighlights(note);
+  renderReaderPanel(note);
   pageModal.classList.remove('hidden');
 }
+
+// ---- Saved article text ----
+
+const readerPanel = document.getElementById('readerPanel');
+const readerSummary = document.getElementById('readerSummary');
+const readerMeta = document.getElementById('readerMeta');
+const clearSavedContentBtn = document.getElementById('clearSavedContent');
+
+// A 13px scrolling box inside a 380px panel was never a reading surface. The
+// panel now reports what is saved and hands off to the full reader.
+function renderReaderPanel(note) {
+  const sc = note && note.savedContent;
+  if (!sc) { readerPanel.classList.add('hidden'); return; }
+  const text = typeof sc === 'string' ? sc : (sc.text || '');
+  const words = text ? text.split(/\s+/).length : 0;
+  readerSummary.textContent = `Saved article · ${words.toLocaleString()} words`;
+  const bits = [];
+  if (sc.byline) bits.push(sc.byline);
+  if (sc.siteName) bits.push(sc.siteName);
+  if (sc.savedAt) bits.push(`saved ${relativeTime(sc.savedAt)}`);
+  readerMeta.textContent = bits.join(' · ');
+  readerPanel.classList.remove('hidden');
+}
+
+document.getElementById('openReader').addEventListener('click', () => {
+  if (!currentPageNote) return;
+  chrome.runtime.sendMessage({ type: 'OPEN_READER', pageNoteId: currentPageNote.id });
+});
+
+clearSavedContentBtn.addEventListener('click', async () => {
+  if (!currentPageNote) return;
+  if (!confirm('Remove the saved article text? Highlights on this page are kept.')) return;
+  await chrome.runtime.sendMessage({ type: 'CLEAR_SAVED_CONTENT', pageNoteId: currentPageNote.id });
+  await loadPageNotes();
+  const fresh = await pageStorage.getById(currentPageNote.id);
+  if (fresh) { currentPageNote = fresh; renderReaderPanel(fresh); }
+});
 
 function closePageModal() {
   pageModal.classList.add('hidden');
@@ -540,22 +639,14 @@ function startCommentEdit(el, highlight, pageNote) {
   ta.value = original;
   ta.placeholder = 'Add a note…';
   ta.rows = 2;
-  ta.maxLength = 280;
   el.appendChild(ta);
 
-  const counter = document.createElement('div');
-  counter.className = 'comment-counter';
-  counter.textContent = `${280 - original.length}`;
-  el.appendChild(counter);
+
 
   ta.focus();
 
-  ta.addEventListener('input', () => {
-    counter.textContent = `${280 - ta.value.length}`;
-  });
-
   const save = async () => {
-    const text = ta.value.trim().slice(0, 280);
+    const text = ta.value.trim();
     ta.removeEventListener('blur', onBlur);
     if (text !== original) {
       highlight.comment = text;
@@ -583,6 +674,18 @@ function getSelectedHighlightIds() {
   return Array.from(checked).map((cb) => cb.value);
 }
 
+// Labels must state the scope, or "Copy all" silently means "copy three".
+function updateExportLabels() {
+  const ids = getSelectedHighlightIds();
+  const n = ids ? ids.length : 0;
+  const exportBtn = document.getElementById('exportPageMd');
+  const copyBtn = document.getElementById('copyPageMd');
+  if (!exportBtn || !copyBtn) return;
+  const hasArticle = !!(currentPageNote && currentPageNote.savedContent);
+  exportBtn.lastChild.textContent = n ? `Export ${n} selected` : (hasArticle ? 'Export page + article' : 'Export page');
+  copyBtn.lastChild.textContent = n ? `Copy ${n} selected` : 'Copy all quotes';
+}
+
 function updateSelectAllState() {
   const all = pageHighlightsHost.querySelectorAll('.hl-checkbox');
   const checked = pageHighlightsHost.querySelectorAll('.hl-checkbox:checked');
@@ -590,6 +693,7 @@ function updateSelectAllState() {
   if (!selectAllCb) return;
   selectAllCb.checked = all.length > 0 && checked.length === all.length;
   selectAllCb.indeterminate = checked.length > 0 && checked.length < all.length;
+  updateExportLabels();
 }
 
 // Wired from sidebar.html inline — see the select-all checkbox.
@@ -641,7 +745,7 @@ async function jumpToHighlight(h, note) {
 
 async function deleteHighlight(h, note) {
   if (!confirm('Delete this highlight?')) return;
-  await pageStorage.deleteHighlight(note.id, h.id);
+  await chrome.runtime.sendMessage({ type: 'DELETE_HIGHLIGHT', pageNoteId: note.id, highlightId: h.id });
   const refreshed = await pageStorage.getById(note.id);
   if (!refreshed || refreshed.highlights.length === 0) {
     closePageModal();
@@ -655,8 +759,10 @@ async function deleteHighlight(h, note) {
 
 async function deleteCurrentPageNote() {
   if (!currentPageNote) return;
-  if (!confirm(`Delete the page note for "${currentPageNote.pageTitle}"? All ${currentPageNote.highlights.length} highlight(s) will be removed.`)) return;
-  await pageStorage.deletePageNote(currentPageNote.id);
+  const parts = [`${currentPageNote.highlights.length} highlight(s)`];
+  if (currentPageNote.savedContent) parts.push('the saved article text');
+  if (!confirm(`Delete the page note for "${currentPageNote.pageTitle}"? This removes ${parts.join(' and ')}.`)) return;
+  await chrome.runtime.sendMessage({ type: 'DELETE_PAGE_NOTE', pageNoteId: currentPageNote.id });
   closePageModal();
   loadPageNotes();
 }
@@ -705,7 +811,10 @@ const pageNoteExporter = new PageNoteExporter();
 document.getElementById('exportPageMd')?.addEventListener('click', () => {
   if (!currentPageNote) return;
   const ids = getSelectedHighlightIds();
-  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  // A subset selection means "these quotes", not "these quotes plus several
+  // thousand words of article".
+  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const md = pageNoteExporter.exportPageNote(note, ids);
   const fname = pageNoteExporter.sanitizeFilename(currentPageNote.pageTitle);
   pageNoteExporter.downloadMarkdown(md, fname);
 });
@@ -713,7 +822,8 @@ document.getElementById('exportPageMd')?.addEventListener('click', () => {
 document.getElementById('copyPageMd')?.addEventListener('click', async () => {
   if (!currentPageNote) return;
   const ids = getSelectedHighlightIds();
-  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const md = pageNoteExporter.exportPageNote(note, ids);
   try {
     await pageNoteExporter.copyToClipboard(md);
     flashPageMetadata('Copied to clipboard');
@@ -738,3 +848,121 @@ exportAllMd.addEventListener('click', async () => {
 
 // Initial load (in addition to the lazy load on tab switch).
 loadPageNotes();
+
+// ---- Vault: mirror captures into a folder on disk ----
+//
+// All writing happens here in the sidebar rather than in the service worker,
+// because showDirectoryPicker and permission prompts need a document and a user
+// gesture. Highlights captured while the sidebar is closed are mirrored the
+// next time it opens, which is what the catch-up call below is for.
+
+const vault = new VaultWriter();
+const vaultBar = document.getElementById('vaultBar');
+const vaultStatusEl = document.getElementById('vaultStatus');
+const vaultActionBtn = document.getElementById('vaultAction');
+const vaultForgetBtn = document.getElementById('vaultForget');
+
+let vaultMirrorQueued = false;
+
+function setVaultStatus(text, kind) {
+  vaultStatusEl.textContent = text;
+  vaultStatusEl.classList.toggle('is-connected', kind === 'connected');
+  vaultStatusEl.classList.toggle('is-error', kind === 'error');
+}
+
+async function renderVaultBar() {
+  if (!vault.isSupported()) { vaultBar.classList.add('hidden'); return; }
+  vaultBar.classList.remove('hidden');
+  const { state, name } = await vault.status();
+  if (state === 'granted') {
+    setVaultStatus(`Markdown folder: ${name}`, 'connected');
+    vaultActionBtn.textContent = 'Write files now';
+    vaultForgetBtn.classList.remove('hidden');
+  } else if (state === 'prompt') {
+    setVaultStatus(`${name} needs permission again`, 'error');
+    vaultActionBtn.textContent = 'Reconnect';
+    vaultForgetBtn.classList.remove('hidden');
+  } else {
+    setVaultStatus('No Markdown folder', null);
+    vaultActionBtn.textContent = 'Choose folder';
+    vaultForgetBtn.classList.add('hidden');
+  }
+}
+
+// Write every note and page note. Failures are surfaced, not swallowed: a
+// capture the user believes is on disk had better be on disk.
+async function mirrorVault() {
+  if (!vault.isSupported()) return;
+  const { state } = await vault.status();
+  if (state !== 'granted') return;
+  try {
+    const res = await vault.mirrorAll(allNotes, allPageNotes, markdown, pageNoteExporter);
+    if (res.errors.length) {
+      setVaultStatus(`${res.errors.length} file(s) failed to write`, 'error');
+      console.error('Vault write errors:', res.errors);
+    } else {
+      setVaultStatus(`Saved ${res.notes + res.pageNotes} file(s) to disk`, 'connected');
+      setTimeout(renderVaultBar, 2500);
+    }
+  } catch (err) {
+    setVaultStatus('Could not write to the folder', 'error');
+    console.error('Vault mirror failed:', err);
+  }
+}
+
+// Coalesce bursts: saving a note fires several storage events in a row.
+function queueVaultMirror() {
+  if (vaultMirrorQueued) return;
+  vaultMirrorQueued = true;
+  setTimeout(() => { vaultMirrorQueued = false; mirrorVault(); }, 600);
+}
+
+vaultActionBtn.addEventListener('click', async () => {
+  try {
+    const { state } = await vault.status();
+    if (state === 'granted') { await mirrorVault(); return; }
+    const name = state === 'prompt' ? await vault.reconnect() : await vault.connect();
+    setVaultStatus(`Markdown folder: ${name}`, 'connected');
+    await mirrorVault();
+    await renderVaultBar();
+  } catch (err) {
+    // An aborted folder picker is a normal user choice, not a failure.
+    if (err && err.name === 'AbortError') return;
+    setVaultStatus(err.message || 'Could not connect the folder', 'error');
+  }
+});
+
+vaultForgetBtn.addEventListener('click', async () => {
+  if (!confirm('Stop writing new captures to this folder? Files already written stay where they are.')) return;
+  await vault.disconnect();
+  await renderVaultBar();
+});
+
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace !== 'local') return;
+  if (changes.offline_notes || changes.offline_page_notes) queueVaultMirror();
+});
+
+// Catch-up on open, once the in-memory lists are populated.
+(async () => {
+  await renderVaultBar();
+  setTimeout(mirrorVault, 1200);
+})();
+
+// ---- Theme switch ----
+// Two palettes, both defined in lib/tokens.css. This only flips which one is
+// active; nothing else in the sidebar knows a theme exists.
+const themeToggle = document.getElementById('themeToggle');
+
+async function refreshThemeToggle() {
+  const t = await getTheme();
+  themeToggle.title = t === 'reader' ? 'Theme: White. Switch to Paper' : 'Theme: Paper. Switch to White';
+}
+
+themeToggle.addEventListener('click', async () => {
+  const current = await getTheme();
+  await setTheme(current === 'reader' ? 'paper' : 'reader');
+  await refreshThemeToggle();
+});
+
+refreshThemeToggle();
