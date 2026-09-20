@@ -58,8 +58,8 @@
           <button class="b" id="noteBtn" title="Save and add a note" aria-label="Save and add a note"><span class="i" id="ico2"></span></button>
         </div>
         <div class="cm" id="cm">
-          <textarea class="ta" id="ta" rows="2" maxlength="280" aria-label="Note for this highlight" placeholder="Add a note…"></textarea>
-          <div class="ht">Enter ↵ save · Esc cancel · <span id="cc">280</span></div>
+          <textarea class="ta" id="ta" rows="2" aria-label="Note for this highlight" placeholder="Add a note…"></textarea>
+          <div class="ht">Enter ↵ save · Esc cancel</div>
         </div>
       </div>`;
     document.body.appendChild(host);
@@ -139,15 +139,13 @@
     commenting = true;
     const cm = root.getElementById('cm');
     const ta = root.getElementById('ta');
-    const cc = root.getElementById('cc');
     cm.classList.add('on');
     ta.value = '';
-    cc.textContent = '280';
     reposition(); // the bubble just got taller; keep it against the selection and onscreen
     setTimeout(() => ta.focus(), 50);
 
     const done = async () => {
-      const txt = ta.value.trim().slice(0, 280);
+      const txt = ta.value.trim();
       // cleanup() nulls saveCtx, so read it first or the comment never reaches storage.
       const ctx = saveCtx;
       cleanup();
@@ -158,12 +156,10 @@
     };
     const cancel = () => { cleanup(); hide(); };
     const kd = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(); } if (e.key === 'Escape') { e.preventDefault(); cancel(); } };
-    const inp = () => { cc.textContent = String(280 - ta.value.length); };
     const blur = () => setTimeout(done, 80);
     ta.addEventListener('keydown', kd);
-    ta.addEventListener('input', inp);
     ta.addEventListener('blur', blur);
-    function cleanup() { commenting = false; ta.removeEventListener('keydown', kd); ta.removeEventListener('input', inp); ta.removeEventListener('blur', blur); cm.classList.remove('on'); saveCtx = null; }
+    function cleanup() { commenting = false; ta.removeEventListener('keydown', kd); ta.removeEventListener('blur', blur); cm.classList.remove('on'); saveCtx = null; }
   }
 
   // ---- Selection tracking ----

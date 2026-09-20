@@ -518,6 +518,7 @@ function renderPageNotes() {
         <span class="host">${escapeHtml(hostOf(note.url))}</span>
         <span class="sep">·</span>
         <span class="count">${note.highlights.length} highlight${note.highlights.length === 1 ? '' : 's'}</span>
+        ${note.savedContent ? '<span class="sep">·</span><span class="saved-badge">Saved offline</span>' : ''}
         <span class="sep">·</span>
         <span class="time">${relativeTime(note.updatedAt)}</span>
       </div>
@@ -638,22 +639,14 @@ function startCommentEdit(el, highlight, pageNote) {
   ta.value = original;
   ta.placeholder = 'Add a note…';
   ta.rows = 2;
-  ta.maxLength = 280;
   el.appendChild(ta);
 
-  const counter = document.createElement('div');
-  counter.className = 'comment-counter';
-  counter.textContent = `${280 - original.length}`;
-  el.appendChild(counter);
+
 
   ta.focus();
 
-  ta.addEventListener('input', () => {
-    counter.textContent = `${280 - ta.value.length}`;
-  });
-
   const save = async () => {
-    const text = ta.value.trim().slice(0, 280);
+    const text = ta.value.trim();
     ta.removeEventListener('blur', onBlur);
     if (text !== original) {
       highlight.comment = text;
@@ -681,6 +674,18 @@ function getSelectedHighlightIds() {
   return Array.from(checked).map((cb) => cb.value);
 }
 
+// Labels must state the scope, or "Copy all" silently means "copy three".
+function updateExportLabels() {
+  const ids = getSelectedHighlightIds();
+  const n = ids ? ids.length : 0;
+  const exportBtn = document.getElementById('exportPageMd');
+  const copyBtn = document.getElementById('copyPageMd');
+  if (!exportBtn || !copyBtn) return;
+  const hasArticle = !!(currentPageNote && currentPageNote.savedContent);
+  exportBtn.lastChild.textContent = n ? `Export ${n} selected` : (hasArticle ? 'Export page + article' : 'Export page');
+  copyBtn.lastChild.textContent = n ? `Copy ${n} selected` : 'Copy all quotes';
+}
+
 function updateSelectAllState() {
   const all = pageHighlightsHost.querySelectorAll('.hl-checkbox');
   const checked = pageHighlightsHost.querySelectorAll('.hl-checkbox:checked');
@@ -688,6 +693,7 @@ function updateSelectAllState() {
   if (!selectAllCb) return;
   selectAllCb.checked = all.length > 0 && checked.length === all.length;
   selectAllCb.indeterminate = checked.length > 0 && checked.length < all.length;
+  updateExportLabels();
 }
 
 // Wired from sidebar.html inline — see the select-all checkbox.
@@ -753,7 +759,9 @@ async function deleteHighlight(h, note) {
 
 async function deleteCurrentPageNote() {
   if (!currentPageNote) return;
-  if (!confirm(`Delete the page note for "${currentPageNote.pageTitle}"? All ${currentPageNote.highlights.length} highlight(s) will be removed.`)) return;
+  const parts = [`${currentPageNote.highlights.length} highlight(s)`];
+  if (currentPageNote.savedContent) parts.push('the saved article text');
+  if (!confirm(`Delete the page note for "${currentPageNote.pageTitle}"? This removes ${parts.join(' and ')}.`)) return;
   await chrome.runtime.sendMessage({ type: 'DELETE_PAGE_NOTE', pageNoteId: currentPageNote.id });
   closePageModal();
   loadPageNotes();
@@ -803,7 +811,10 @@ const pageNoteExporter = new PageNoteExporter();
 document.getElementById('exportPageMd')?.addEventListener('click', () => {
   if (!currentPageNote) return;
   const ids = getSelectedHighlightIds();
-  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  // A subset selection means "these quotes", not "these quotes plus several
+  // thousand words of article".
+  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const md = pageNoteExporter.exportPageNote(note, ids);
   const fname = pageNoteExporter.sanitizeFilename(currentPageNote.pageTitle);
   pageNoteExporter.downloadMarkdown(md, fname);
 });
@@ -811,7 +822,8 @@ document.getElementById('exportPageMd')?.addEventListener('click', () => {
 document.getElementById('copyPageMd')?.addEventListener('click', async () => {
   if (!currentPageNote) return;
   const ids = getSelectedHighlightIds();
-  const md = pageNoteExporter.exportPageNote(currentPageNote, ids);
+  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const md = pageNoteExporter.exportPageNote(note, ids);
   try {
     await pageNoteExporter.copyToClipboard(md);
     flashPageMetadata('Copied to clipboard');
@@ -863,15 +875,15 @@ async function renderVaultBar() {
   vaultBar.classList.remove('hidden');
   const { state, name } = await vault.status();
   if (state === 'granted') {
-    setVaultStatus(`Saving to ${name}`, 'connected');
-    vaultActionBtn.textContent = 'Sync now';
+    setVaultStatus(`Markdown folder: ${name}`, 'connected');
+    vaultActionBtn.textContent = 'Write files now';
     vaultForgetBtn.classList.remove('hidden');
   } else if (state === 'prompt') {
     setVaultStatus(`${name} needs permission again`, 'error');
     vaultActionBtn.textContent = 'Reconnect';
     vaultForgetBtn.classList.remove('hidden');
   } else {
-    setVaultStatus('Not saving to disk', null);
+    setVaultStatus('No Markdown folder', null);
     vaultActionBtn.textContent = 'Choose folder';
     vaultForgetBtn.classList.add('hidden');
   }
@@ -910,7 +922,7 @@ vaultActionBtn.addEventListener('click', async () => {
     const { state } = await vault.status();
     if (state === 'granted') { await mirrorVault(); return; }
     const name = state === 'prompt' ? await vault.reconnect() : await vault.connect();
-    setVaultStatus(`Saving to ${name}`, 'connected');
+    setVaultStatus(`Markdown folder: ${name}`, 'connected');
     await mirrorVault();
     await renderVaultBar();
   } catch (err) {
@@ -944,7 +956,7 @@ const themeToggle = document.getElementById('themeToggle');
 
 async function refreshThemeToggle() {
   const t = await getTheme();
-  themeToggle.title = t === 'reader' ? 'Theme: Reader. Switch to Paper' : 'Theme: Paper. Switch to Reader';
+  themeToggle.title = t === 'reader' ? 'Theme: White. Switch to Paper' : 'Theme: Paper. Switch to White';
 }
 
 themeToggle.addEventListener('click', async () => {

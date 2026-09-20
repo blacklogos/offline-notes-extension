@@ -124,12 +124,6 @@ document.addEventListener('keydown', (e) => {
     noteForm.dispatchEvent(new Event('submit'));
   }
 
-  // Ctrl/Cmd + K to clear
-  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-    e.preventDefault();
-    clearBtn.click();
-  }
-
   // Esc to close popup
   if (e.key === 'Escape') {
     window.close();

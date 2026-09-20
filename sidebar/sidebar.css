@@ -730,3 +730,6 @@ summary:focus-visible, .tag-chip:focus-visible, .btn-link:focus-visible {
   font-weight: var(--weight-semibold);
   line-height: 1;
 }
+
+/* A page saved for reading, with or without highlights, should say so. */
+.saved-badge { color: var(--sage-700); }
