@@ -62,4 +62,41 @@ module.exports = ({ test, eq, ok, root }) => {
     ok(hit, 'should find the Vietnamese quote');
     eq(hay.slice(hit.start, hit.end), 'lập kế hoạch');
   });
+
+  test('locates a quote selected across block boundaries', () => {
+    // range.toString() concatenates across block elements with no separator,
+    // so a multi-paragraph selection arrives as "...reads fromMore of You..."
+    // while the saved article has a blank line between those paragraphs.
+    const article = [
+      'Intelligence: the context everything else reads from',
+      'More of You: skills that scale how you work',
+      'Better Thinking: skills that challenge your judgement',
+    ].join('\n\n');
+    const quote = 'the context everything else reads fromMore of You: skills that scale how you workBetter Thinking';
+    const hit = locate(article, quote, {});
+    ok(hit, 'a multi-block selection must still be locatable');
+    const got = article.slice(hit.start, hit.end).replace(/\s+/g, ' ');
+    ok(got.startsWith('the context everything else reads from'), `got: ${got}`);
+    ok(got.endsWith('Better Thinking'), `got: ${got}`);
+  });
+
+  test('block-joined quote still respects word boundaries', () => {
+    // "fromMore" must not match text that genuinely reads "fromMORE" elsewhere
+    // in a way that skips content: the span located must cover the same words.
+    const article = 'alpha beta\n\ngamma delta';
+    const hit = locate(article, 'betagamma', {});
+    ok(hit, 'should join across the blank line');
+    eq(article.slice(hit.start, hit.end), 'beta\n\ngamma');
+  });
+
+  test('a quote taken by offset round-trips exactly', () => {
+    // What the reader now stores: the article slice, not the selection string.
+    const article = 'Para one ends here.\n\nPara two starts there.';
+    const start = article.indexOf('ends here');
+    const end = article.indexOf('starts there') + 'starts there'.length;
+    const quote = article.slice(start, end);
+    const hit = locate(article, quote, {});
+    ok(hit, 'offset-derived quote must locate');
+    eq([hit.start, hit.end], [start, end], 'and land on the same span');
+  });
 };
