@@ -2,6 +2,67 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-09-21
+
+A review pass found twenty-one defects. All of them are fixed or shown not to
+be defects. Most were silent: nothing failed visibly, data simply went missing
+or was stored wrong.
+
+### Privacy
+
+The capture bubble used an open shadow root, so any site you annotated could
+read your private comment about it, including one prefilled for editing, and
+hiding the bubble left the text in place. The root is closed and the box is
+cleared. HTML import was checked for remote requests during parsing: there are
+none, now asserted by a test.
+
+### Data loss
+
+- Renaming a page bypassed the write queue and could erase a capture made at
+  the same moment, possibly on a different page.
+- Restore wrote collections directly, so an in-flight save could overwrite what
+  you had just restored.
+- A legacy backup omitting a collection erased it, so restoring an old
+  notes-only file deleted every page note.
+- A backup containing an invalid record passed validation and was written over
+  real notes.
+- A failed read of the notes collection became an empty one, and the next save
+  wrote it back, erasing everything.
+- Two files whose names differ only in punctuation shared one imported page
+  note, so the second import replaced the first document while keeping its
+  highlights.
+- A failed note save still closed the editor and discarded the edits.
+- A background change reset an unsaved summary or title.
+
+### Highlights and the reader
+
+- The reader hid any text not covered by a recorded block, and measured
+  selections against what it displayed while storing them as positions in the
+  full text, so a quote could be saved as words you never selected.
+- Emphasis made in the reader was stored at displayed positions rather than
+  positions in the quote, bolding the wrong characters.
+- A highlight overlapping an earlier one lost its tail and its rail entry
+  pointed at nothing.
+- A highlight made across paragraphs in the reader could never reappear on the
+  page it came from.
+- Emphasis on a repeated word inside a cross-paragraph quote vanished.
+- Quote lookup gave up after fifty occurrences, discarding the one your stored
+  context identified.
+- Two equally plausible anchor positions painted the first, putting a highlight
+  on words you never highlighted; it now reports the quote as not located.
+- Highlights did not reappear on pages that render by replacing text rather
+  than adding it, and a busy page could prevent any retry at all.
+- Single-page apps changed route without the highlights following.
+
+### Other
+
+Exporting all pages dropped every summary. Markdown import mangled literal
+text, turning `__init__` into `init`.
+
+### Tests
+
+83 logic tests and 22 browser tests, up from 74 and 20.
+
 ## [1.3.0] - 2026-09-20
 
 ### Colours, and the part of a quote that matters

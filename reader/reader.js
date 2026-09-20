@@ -299,10 +299,21 @@
     const offsets = selectionOffsetsInMark(activeMark);
     hideBubble();
     if (!offsets) return;
+    // Those offsets are positions in the RENDERED article text. Emphasis is
+    // stored against the highlight's own text, which is the same words with
+    // different spacing, so sending them unchanged would bold the wrong
+    // characters. Translate before storing.
+    const entry = located.find((r) => r.highlight.id === activeMark);
+    const quote = entry ? entry.highlight.text || '' : '';
+    const span = entry ? ((note.savedContent && note.savedContent.text) || '').slice(entry.start, entry.end) : '';
+    const moved = (entry && quote && span)
+      ? window.TextLocate.translateRange(span, quote, offsets.start, offsets.end)
+      : null;
+    const range = moved || offsets;
     try {
       await chrome.runtime.sendMessage({
         type: 'EMPHASISE_HIGHLIGHT', url: note.url, highlightId: activeMark,
-        start: offsets.start, end: offsets.end,
+        start: range.start, end: range.end,
       });
       window.getSelection().removeAllRanges();
       await reload();
@@ -326,9 +337,18 @@
     // which does not appear in the stored text and cannot be located later.
     const usable = start >= 0 && end > start;
     const exact = usable ? text.slice(start, end) : range.toString();
+    // The live page's flat text has no separator between blocks, so an anchor
+    // containing the article's blank lines can never match there and the
+    // highlight would only ever appear in the reader. Store the quote as the
+    // reader sees it, and the anchor as the page will.
+    const flatten = (t) => t.replace(/\n+/g, '');
     const anchor = usable
-      ? { exact, prefix: text.slice(Math.max(0, start - 32), start), suffix: text.slice(end, end + 32) }
-      : { exact, prefix: '', suffix: '' };
+      ? {
+          exact: flatten(exact),
+          prefix: flatten(text.slice(Math.max(0, start - 32), start)),
+          suffix: flatten(text.slice(end, end + 32)),
+        }
+      : { exact: flatten(exact), prefix: '', suffix: '' };
     hideBubble();
     try {
       const r = await chrome.runtime.sendMessage({

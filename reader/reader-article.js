@@ -57,6 +57,13 @@
     for (const e of list) {
       const piece = source.slice(e.start, e.end);
       if (!piece.trim()) continue;
+      // Translate by position. Searching for the text would fail whenever the
+      // emphasised phrase occurs twice inside the same quote, which is exactly
+      // what happens when someone bolds a common phrase in a long passage.
+      const moved = window.TextLocate.translateRange(source, span, e.start, e.end);
+      if (moved) { out.push({ start: hit.start + moved.start, end: hit.start + moved.end }); continue; }
+      // The two renderings are not the same words (the whitespace-insensitive
+      // fallback can match across block joins); fall back to a search.
       const found = window.TextLocate.locate(span, piece, {});
       if (found) out.push({ start: hit.start + found.start, end: hit.start + found.end });
     }
@@ -73,9 +80,12 @@
 
     let cursor = pStart;
     for (const r of inside) {
-      const s = Math.max(r.start, pStart);
+      // Clamp rather than skip: a highlight that starts inside an earlier one
+      // still has a tail of its own, and skipping it left that tail unpainted
+      // while its rail entry claimed to be located.
+      const s = Math.max(r.start, pStart, cursor);
       const e = Math.min(r.end, pEnd);
-      if (s < cursor) continue; // overlapping highlight already covered
+      if (e <= s) continue; // fully covered by an earlier highlight
       if (s > cursor) el.appendChild(document.createTextNode(para.text.slice(cursor - pStart, s - pStart)));
       const mark = document.createElement('mark');
       mark.className = 'rd-mark';
@@ -106,14 +116,31 @@
     const usable = blocks
       .filter(b => b.end > b.start && b.start >= 0 && b.end <= text.length)
       .sort((a, b) => a.start - b.start);
-    // Structure is a presentation nicety; losing the article is not. If the
-    // blocks do not account for nearly all of the text, ignore them.
-    const covered = usable.reduce((n, b) => n + (b.end - b.start), 0);
-    if (!usable.length || covered < text.length * 0.9) return flat();
-    return usable
-      .map(b => ({ kind: b.kind || 'p', start: b.start, text: text.slice(b.start, b.end) }))
-      // Captures made before [edit] links were filtered still carry them.
-      .filter(seg => !/^\[\s*edit\s*\]$/i.test(seg.text.trim()));
+    if (!usable.length) return flat();
+
+    // Every character of the article must be rendered. Emitting only the
+    // recorded blocks hid whatever they did not cover, and worse, the reader
+    // then measured selection offsets against the rendered text while storing
+    // them as offsets into the stored text, so a quote could be saved as words
+    // the user never selected. Gaps become plain paragraphs.
+    const segments = [];
+    let cursor = 0;
+    for (const b of usable) {
+      if (b.start < cursor) continue; // overlapping block already covered
+      if (b.start > cursor) {
+        const gap = text.slice(cursor, b.start);
+        if (gap.trim()) segments.push({ kind: 'p', start: cursor, text: gap.replace(/^\n+|\n+$/g, '') });
+      }
+      segments.push({ kind: b.kind || 'p', start: b.start, text: text.slice(b.start, b.end) });
+      cursor = b.end;
+    }
+    if (cursor < text.length) {
+      const tail = text.slice(cursor);
+      if (tail.trim()) segments.push({ kind: 'p', start: cursor, text: tail.replace(/^\n+|\n+$/g, '') });
+    }
+
+    // Captures made before [edit] links were filtered still carry them.
+    return segments.filter(seg => !/^\[\s*edit\s*\]$/i.test(seg.text.trim()));
   }
 
   function renderArticle(container, text, ranges, blocks) {

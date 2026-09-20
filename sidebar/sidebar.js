@@ -269,11 +269,18 @@ saveNote.addEventListener('click', async () => {
     .filter(tag => tag.length > 0);
 
   try {
-    await chrome.runtime.sendMessage({ type: 'UPDATE_NOTE', id: currentNote.id, updates: {
+    const res = await chrome.runtime.sendMessage({ type: 'UPDATE_NOTE', id: currentNote.id, updates: {
       title: modalTitle.value.trim() || 'Untitled',
       content: modalContent.value.trim(),
       tags
     } });
+    // Never close on a failed save: the editor holds the only copy of the
+    // edits. This fires when the note was deleted in another surface.
+    if (!res || !res.ok) {
+      noteMetadata.textContent = 'Could not save: ' + ((res && res.error) || 'unknown error')
+        + '. Your changes are still here.';
+      return;
+    }
 
     closeNoteModal(true);
     await loadNotes();
@@ -408,10 +415,18 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local' && changes.offline_page_notes) {
     loadPageNotes().then(() => {
       if (currentPageNote && !pageModal.classList.contains('hidden')) {
-        // Don't rebuild the modal out from under an open comment editor or a
-        // checkbox selection; the user would lose both without warning.
+        // Don't rebuild the modal out from under the user. As well as an open
+        // comment editor and a checkbox selection, an unsaved summary or title
+        // would be silently reverted to the stored value.
+        const active = document.activeElement;
+        const editingField = active === document.getElementById('pageSummary')
+          || active === pageModalTitle;
+        const unsavedSummary = document.getElementById('pageSummary').value.trim()
+          !== ((currentPageNote && currentPageNote.summary) || '');
+        const unsavedTitle = pageModalTitle.value !== ((currentPageNote && currentPageNote.pageTitle) || '');
         const busy = pageHighlightsHost.querySelector('textarea.comment-edit')
-          || pageHighlightsHost.querySelector('.hl-checkbox:checked');
+          || pageHighlightsHost.querySelector('.hl-checkbox:checked')
+          || editingField || unsavedSummary || unsavedTitle;
         if (busy) return;
         pageStorage.getById(currentPageNote.id).then((fresh) => {
           if (fresh) { currentPageNote = fresh; openPageModal(fresh); }
@@ -789,7 +804,7 @@ pageModalTitle.addEventListener('blur', async () => {
   if (!currentPageNote) return;
   const newTitle = pageModalTitle.value.trim() || currentPageNote.pageTitle;
   if (newTitle === currentPageNote.pageTitle) return;
-  await pageStorage.updatePageTitle(currentPageNote.id, newTitle);
+  await chrome.runtime.sendMessage({ type: 'UPDATE_PAGE_TITLE', pageNoteId: currentPageNote.id, title: newTitle });
   currentPageNote.pageTitle = newTitle;
   loadPageNotes();
 });
@@ -908,7 +923,14 @@ async function mirrorVault() {
   const { state } = await vault.status();
   if (state !== 'granted') return;
   try {
-    const res = await vault.mirrorAll(allNotes, allPageNotes, markdown, pageNoteExporter);
+    // Read fresh rather than mirroring the sidebar's cached arrays. A capture
+    // lands, storage changes, and this runs on a short timer; the reload of
+    // allNotes/allPageNotes is a separate listener with no ordering guarantee,
+    // so mirroring the cache could omit the very capture that triggered it
+    // while still reporting success.
+    const notes = await storage.getAllNotes();
+    const pages = await pageStorage.getAll();
+    const res = await vault.mirrorAll(notes, pages, markdown, pageNoteExporter);
     if (res.errors.length) {
       setVaultStatus(`${res.errors.length} file(s) failed to write`, 'error');
       console.error('Vault write errors:', res.errors);

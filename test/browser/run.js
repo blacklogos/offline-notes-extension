@@ -58,16 +58,19 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
         await chrome.tabs.reload(tab.id);
         await new Promise(r => setTimeout(r, 3500));
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
           const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
           const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
           await new Promise(r => setTimeout(r, 900));
-          document.querySelector('offline-notes-bubble').shadowRoot.getElementById('saveBtn').click();
-          await new Promise(r => setTimeout(r, 1500));
-          return document.querySelectorAll('.offline-notes-highlight').length;
         }});
+        // The bubble lives in a closed shadow root now, so it is driven by
+        // message: a page cannot reach it, and neither can a test.
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'saveBtn' });
+        await new Promise(r => setTimeout(r, 1600));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id },
+          func: () => document.querySelectorAll('.offline-notes-highlight').length });
         const s = await chrome.storage.local.get('offline_page_notes');
         const note = Object.values(s.offline_page_notes || {})[0];
         return JSON.stringify({ marks: res[0].result, stored: note ? note.highlights.length : 0, url: note && note.url });
@@ -81,23 +84,24 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
     await test('a colour picked in the bubble is stored and painted', async () => {
       const r = await browser.eval(sw, `
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const p = [...document.querySelectorAll('p')].filter(x => x.offsetHeight > 0 && x.innerText.trim().length > 200)[1];
           const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 80);
           const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-          await sleep(900);
-          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
-          const swatches = sr.querySelectorAll('.sw b').length;
-          sr.querySelector('.sw b[data-color="green"]').click();
-          await sleep(250);
-          sr.getElementById('saveBtn').click();
-          await sleep(1800);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const state = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', color: 'green' });
+        await new Promise(r => setTimeout(r, 300));
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'saveBtn' });
+        await new Promise(r => setTimeout(r, 1900));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
           const marks = [...document.querySelectorAll('.offline-notes-highlight')];
           const green = marks.find(m => m.getAttribute('data-color') === 'green');
-          return { swatches, painted: !!green, bg: green && getComputedStyle(green).backgroundColor };
+          return { painted: !!green, bg: green && getComputedStyle(green).backgroundColor };
         }});
+        res[0].result.swatches = state.state.swatches;
         await new Promise(r => setTimeout(r, 800));
         const s = await chrome.storage.local.get('offline_page_notes');
         const n = Object.values(s.offline_page_notes)[0];
@@ -113,25 +117,24 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
     await test('selecting inside a highlight offers Bold, and it persists', async () => {
       const r = await browser.eval(sw, `
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const sel0 = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const mark = document.querySelector('.offline-notes-highlight');
           const tn = [...mark.childNodes].find(n => n.nodeType === 3);
           const range = document.createRange(); range.setStart(tn, 5); range.setEnd(tn, 20);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-          await sleep(900);
-          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
-          const out = {
-            selected: range.toString(),
-            saveBarHidden: sr.querySelector('.bar').classList.contains('off'),
-            markBarShown: sr.getElementById('markBar').classList.contains('on'),
-          };
-          sr.getElementById('boldBtn').click();
-          await sleep(2200);
-          out.strongCount = document.querySelectorAll('.offline-notes-highlight strong').length;
-          out.strongText = (document.querySelector('.offline-notes-highlight strong') || {}).textContent;
-          return out;
+          await new Promise(r => setTimeout(r, 900));
+          return range.toString();
         }});
+        const st = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'boldBtn' });
+        await new Promise(r => setTimeout(r, 2300));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({
+          strongCount: document.querySelectorAll('.offline-notes-highlight strong').length,
+          strongText: (document.querySelector('.offline-notes-highlight strong') || {}).textContent,
+        })});
+        res[0].result.selected = sel0[0].result;
+        res[0].result.saveBarHidden = st.state.saveBarHidden;
+        res[0].result.markBarShown = st.state.markBarShown;
         await new Promise(r => setTimeout(r, 800));
         const s = await chrome.storage.local.get('offline_page_notes');
         const n = Object.values(s.offline_page_notes)[0];
@@ -495,6 +498,107 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       ok(v.present, 'summary rendered in the reader');
       eq(v.text, 'What this page is really about.', 'summary text');
       ok(v.aboveArticle, 'and it sits above the article');
+    });
+
+    await test('the folder mirror writes the capture that triggered it', async () => {
+      // Regression: the mirror used the sidebar's cached arrays, so a capture
+      // could be omitted from disk while the bar still reported success.
+      const r = await browser.eval('sidebar/sidebar.html', `
+        // Stand in for a real directory: same handle interface, no picker.
+        const opfs = await navigator.storage.getDirectory();
+        const dir = await opfs.getDirectoryHandle('mirror-freshness-test', { create: true });
+        vault.handle = dir;
+        await vault._idb('readwrite', (st) => st.put(dir, vault.HANDLE_KEY));
+
+        const countFiles = async () => { let n = 0; for await (const _ of dir.keys()) n++; return n; };
+        await mirrorVault();
+        const before = await countFiles();
+
+        // A capture arriving now must reach disk even though the in-memory
+        // lists have not been reloaded yet.
+        const saved = await chrome.runtime.sendMessage({ type: 'SAVE_NOTE',
+          note: { title: 'mirror freshness', content: 'written straight to storage', tags: [] } });
+        await mirrorVault();
+        const after = await countFiles();
+
+        const notes = await storage.getAllNotes();
+        const target = notes.find(n => n.title === 'mirror freshness');
+        let onDisk = false;
+        try { await dir.getFileHandle('note-' + target.id + '.md'); onDisk = true; } catch (e) { onDisk = false; }
+
+        await vault.disconnect();
+        return JSON.stringify({ ok: saved && saved.ok, before, after, onDisk });
+      `);
+      const v = JSON.parse(r);
+      ok(v.ok, 'the note saved');
+      ok(v.after > v.before, `a file was added (${v.before} -> ${v.after})`);
+      ok(v.onDisk, 'the new note is on disk, not just counted');
+    });
+
+    await test('the page cannot read private comments out of the bubble', async () => {
+      // The bubble is in a closed shadow root: a site you annotate must not be
+      // able to read what you wrote about it.
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4000));
+        // The bubble only exists once there is a selection, so make one.
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
+          const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
+          const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 30);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const probe = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          world: 'MAIN',
+          func: () => {
+            const host = document.querySelector('offline-notes-bubble');
+            return {
+              hostVisible: !!host,
+              shadowReachable: !!(host && host.shadowRoot),
+              textFound: host && host.shadowRoot
+                ? !!host.shadowRoot.getElementById('ta')
+                : false,
+            };
+          },
+        });
+        return JSON.stringify(probe[0].result);
+      `);
+      const v = JSON.parse(r);
+      ok(v.hostVisible, 'the host element is in the page, as it must be');
+      eq(v.shadowReachable, false, 'but the page cannot open its shadow root');
+      eq(v.textFound, false, 'and cannot reach the comment box');
+    });
+
+    await test('importing HTML makes no network request', async () => {
+      // DOMParser builds an inert document, but the promise is that nothing
+      // ever reaches the network, so it is asserted rather than assumed.
+      const r = await browser.eval('sidebar/sidebar.html', `
+        const html = '<html><head><title>T</title></head><body>'
+          + '<img src="https://example.invalid/tracker.gif">'
+          + '<iframe src="https://example.invalid/frame.html"></iframe>'
+          + '<script src="https://example.invalid/evil.js"><' + '/script>'
+          + '<link rel="stylesheet" href="https://example.invalid/style.css">'
+          + '<p>' + 'Long enough body text to pass the minimum length check. '.repeat(5) + '</p>'
+          + '</body></html>';
+        const before = performance.getEntriesByType('resource').length;
+        const sc = FileImport.buildSavedContent('probe.html', html);
+        await new Promise(r => setTimeout(r, 1200));
+        const after = performance.getEntriesByType('resource')
+          .filter(e => e.name.includes('example.invalid'));
+        return JSON.stringify({
+          imported: !!sc,
+          chars: sc ? sc.chars : 0,
+          remoteRequests: after.length,
+          keepsNoMarkup: sc ? !/<|src=/.test(sc.text) : null,
+        });
+      `);
+      const v = JSON.parse(r);
+      ok(v.imported, 'the document imported');
+      eq(v.remoteRequests, 0, 'no remote resource was requested');
+      ok(v.keepsNoMarkup, 'and the stored text carries no markup');
     });
 
     await test('backup round-trips every key', async () => {
