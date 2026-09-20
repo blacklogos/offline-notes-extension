@@ -50,6 +50,17 @@ Shared library layer (`lib/`), each file defines a class on the global scope:
 - **`text-locate.js`** — finds a stored quote inside the rebuilt article text. Both sides are normalized because the snapshot's whitespace and punctuation differ from the live DOM.
 - **`vault.js`** — mirrors notes to a folder chosen via the File System Access API. Write-only, sidebar-driven, because `showDirectoryPicker` needs a document and a gesture.
 - **`theme.js`** — paper/white theme switch.
+- **`highlight-style.js`** — the five highlight colours and emphasis (offsets into a highlight's own text), plus the run-splitting both the live page and the reader paint with.
+- **`highlight-order.js`** — the remembered listing order for highlights, shared by the sidebar and export.
+- **`text-blocks.js`** — the DOM-to-text-plus-blocks walker, shared by the page extractor and the file importer.
+- **`file-import.js`** — local Markdown and HTML into the same record shape a saved web page produces.
+- **`cornell-export.js`** — Cornell layout over existing fields; adds no data.
+
+**Every file in `lib/` is a classic script sharing one global scope.** Two
+modules declaring the same top-level `const` makes the second fail to parse,
+silently, and its global simply goes missing. Wrap module bodies in an IIFE and
+export explicitly. A browser test asserts each shared module reaches the page
+that loads it.
 - **`backup.js`** — `BackupManager`. Owns the full backup shape across every storage key, validates a file before restoring, and summarizes what a restore would replace.
 - **`templates.js`** — 5 HTML-string templates (`paper-default`, `paper-minimal`, `paper-card`, `paper-quote`, `paper-letterhead`) keyed by name. Templates use inline styles and must `escapeHtml()` user content — XSS prevention lives here, not at render time.
 - **`image-generator.js`** — wraps `html2canvas` (bundled locally at `lib/html2canvas.min.js`, not a CDN) to render a template to a 2x PNG and trigger download.

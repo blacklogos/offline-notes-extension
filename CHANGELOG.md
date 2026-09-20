@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-09-20
+
+### Colours, and the part of a quote that matters
+
+Five highlight colours, picked from the capture bubble or in the reader,
+remembered between captures so a run in one colour is one click each. Named by
+hue rather than by purpose, so the meaning is yours.
+
+Select text inside a highlight you already made and the bubble offers **Bold**
+instead of Save: mark the part of the quote that mattered most. It renders bold
+on the page and in the reader, and exports as `**bold**`. Offsets are stored
+against the quote's own text, so emphasis survives the page changing underneath.
+
+That swap also fixes a bug: selecting inside a highlight and pressing Save used
+to store a second overlapping copy that could never be painted.
+
+### Read and highlight your own files
+
+Import a Markdown or HTML file from the Pages tab and it becomes an ordinary
+page note: readable, highlightable, exportable, mirrored to your folder. A
+Markdown file renders better here than in a browser tab, where it is one
+undifferentiated block of preformatted text. Re-importing an edited file
+updates the same note and keeps its highlights.
+
+PDF is refused with a reason rather than ignored: Chrome renders PDFs without
+accessible text, so a highlight could not be anchored back to the document.
+
+### Summary, order, and a Cornell sheet
+
+Each page note gets a summary in your own words, shown above the article in the
+reader and carried into export. Highlight lists follow one remembered order,
+newest or oldest first, applied to both the sidebar and export; the reader rail
+keeps article order, because it is a map of the text beside it. Before this the
+same page note read back in three different sequences depending on where you
+looked.
+
+Cornell export writes a cue-and-notes table with the summary underneath. It
+adds no fields: the comment already on a highlight is the cue, the quote is the
+note.
+
+### Fixes
+
+- A selection dragged across paragraphs produced a highlight that could never
+  be found again, because `range.toString()` joins block elements with no
+  separator while the saved article has a blank line between them.
+- Emphasis painting mixed two coordinate systems and silently dropped a
+  character at the mark boundary.
+- Section `[edit]` links leaked into saved Wikipedia articles.
+- Two shared modules failed to load with no error at all, because classic
+  scripts share one global scope and a duplicate top-level `const` makes the
+  second script fail to parse. A test now asserts every shared module reaches
+  the page that loads it.
+
+### Tests
+
+71 logic tests and 19 browser tests, no dependencies.
+
 ## [1.2.0] - 2026-09-20
 
 ### Read what you saved, offline
