@@ -908,7 +908,14 @@ async function mirrorVault() {
   const { state } = await vault.status();
   if (state !== 'granted') return;
   try {
-    const res = await vault.mirrorAll(allNotes, allPageNotes, markdown, pageNoteExporter);
+    // Read fresh rather than mirroring the sidebar's cached arrays. A capture
+    // lands, storage changes, and this runs on a short timer; the reload of
+    // allNotes/allPageNotes is a separate listener with no ordering guarantee,
+    // so mirroring the cache could omit the very capture that triggered it
+    // while still reporting success.
+    const notes = await storage.getAllNotes();
+    const pages = await pageStorage.getAll();
+    const res = await vault.mirrorAll(notes, pages, markdown, pageNoteExporter);
     if (res.errors.length) {
       setVaultStatus(`${res.errors.length} file(s) failed to write`, 'error');
       console.error('Vault write errors:', res.errors);

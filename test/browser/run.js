@@ -497,6 +497,41 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       ok(v.aboveArticle, 'and it sits above the article');
     });
 
+    await test('the folder mirror writes the capture that triggered it', async () => {
+      // Regression: the mirror used the sidebar's cached arrays, so a capture
+      // could be omitted from disk while the bar still reported success.
+      const r = await browser.eval('sidebar/sidebar.html', `
+        // Stand in for a real directory: same handle interface, no picker.
+        const opfs = await navigator.storage.getDirectory();
+        const dir = await opfs.getDirectoryHandle('mirror-freshness-test', { create: true });
+        vault.handle = dir;
+        await vault._idb('readwrite', (st) => st.put(dir, vault.HANDLE_KEY));
+
+        const countFiles = async () => { let n = 0; for await (const _ of dir.keys()) n++; return n; };
+        await mirrorVault();
+        const before = await countFiles();
+
+        // A capture arriving now must reach disk even though the in-memory
+        // lists have not been reloaded yet.
+        const saved = await chrome.runtime.sendMessage({ type: 'SAVE_NOTE',
+          note: { title: 'mirror freshness', content: 'written straight to storage', tags: [] } });
+        await mirrorVault();
+        const after = await countFiles();
+
+        const notes = await storage.getAllNotes();
+        const target = notes.find(n => n.title === 'mirror freshness');
+        let onDisk = false;
+        try { await dir.getFileHandle('note-' + target.id + '.md'); onDisk = true; } catch (e) { onDisk = false; }
+
+        await vault.disconnect();
+        return JSON.stringify({ ok: saved && saved.ok, before, after, onDisk });
+      `);
+      const v = JSON.parse(r);
+      ok(v.ok, 'the note saved');
+      ok(v.after > v.before, `a file was added (${v.before} -> ${v.after})`);
+      ok(v.onDisk, 'the new note is on disk, not just counted');
+    });
+
     await test('backup round-trips every key', async () => {
       const r = await browser.eval('sidebar/sidebar.html', `
         const b = new BackupManager();

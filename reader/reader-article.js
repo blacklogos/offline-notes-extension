@@ -57,6 +57,13 @@
     for (const e of list) {
       const piece = source.slice(e.start, e.end);
       if (!piece.trim()) continue;
+      // Translate by position. Searching for the text would fail whenever the
+      // emphasised phrase occurs twice inside the same quote, which is exactly
+      // what happens when someone bolds a common phrase in a long passage.
+      const moved = window.TextLocate.translateRange(source, span, e.start, e.end);
+      if (moved) { out.push({ start: hit.start + moved.start, end: hit.start + moved.end }); continue; }
+      // The two renderings are not the same words (the whitespace-insensitive
+      // fallback can match across block joins); fall back to a search.
       const found = window.TextLocate.locate(span, piece, {});
       if (found) out.push({ start: hit.start + found.start, end: hit.start + found.end });
     }

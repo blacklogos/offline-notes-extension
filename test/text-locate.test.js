@@ -99,4 +99,33 @@ module.exports = ({ test, eq, ok, root }) => {
     ok(hit, 'offset-derived quote must locate');
     eq([hit.start, hit.end], [start, end], 'and land on the same span');
   });
+
+  test('translates an offset range between two renderings of the same words', () => {
+    const { translateRange } = require(root + '/lib/text-locate.js');
+    const src = 'we must build the system so the system serves';
+    const tgt = 'we  must build the system so the system  serves';
+    // The SECOND occurrence: a search would be ambiguous, position is not.
+    const r = translateRange(src, tgt, 27, 38);
+    ok(r, 'should translate');
+    eq(tgt.slice(r.start, r.end).trim(), 'the system');
+    ok(r.start > 26, 'and it is the second occurrence, not the first');
+  });
+
+  test('translation refuses when the two are not the same words', () => {
+    const { translateRange } = require(root + '/lib/text-locate.js');
+    eq(translateRange('alpha beta', 'gamma delta', 0, 5), null);
+    eq(translateRange('', 'x', 0, 1), null);
+  });
+
+  test('a range starting on collapsed whitespace still translates', () => {
+    const { translateRange } = require(root + '/lib/text-locate.js');
+    const src = 'one   two three';
+    const tgt = 'one two three';
+    const r = translateRange(src, tgt, 3, 9);   // starts inside the spaces
+    ok(r, 'should translate');
+    // The source range covered whitespace, which collapsed to one space, so
+    // the translated range covers that space and the word, and nothing more.
+    eq(tgt.slice(r.start, r.end), ' two');
+    eq(tgt.slice(r.start, r.end).trim(), 'two');
+  });
 };
