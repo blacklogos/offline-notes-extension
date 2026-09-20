@@ -31,11 +31,36 @@
     for (const h of highlights) {
       const quote = (h.anchor && h.anchor.exact) || h.text || '';
       const hit = window.TextLocate.locate(text, quote, h.anchor || {});
-      if (hit) located.push({ highlight: h, start: hit.start, end: hit.end });
+      if (hit) located.push({ highlight: h, start: hit.start, end: hit.end, emphasis: emphasisInArticle(h, text, hit) });
       else lost.push(h);
     }
     located.sort((a, b) => a.start - b.start);
     return { located, lost };
+  }
+
+  /**
+   * Translate emphasis into article coordinates.
+   *
+   * Emphasis offsets index the highlight's OWN text, which is deliberate: it
+   * survives the page changing. But the article slice the quote was located
+   * in can differ from that text, because locating normalises whitespace and
+   * punctuation. Slicing article text with highlight-text offsets therefore
+   * drops or duplicates characters. Each emphasised piece is located inside
+   * the span instead, so painting works in one coordinate system throughout.
+   */
+  function emphasisInArticle(highlight, articleText, hit) {
+    const list = highlight.emphasis || [];
+    if (!list.length) return [];
+    const span = articleText.slice(hit.start, hit.end);
+    const source = highlight.text || '';
+    const out = [];
+    for (const e of list) {
+      const piece = source.slice(e.start, e.end);
+      if (!piece.trim()) continue;
+      const found = window.TextLocate.locate(span, piece, {});
+      if (found) out.push({ start: hit.start + found.start, end: hit.start + found.end });
+    }
+    return out;
   }
 
   // Build one paragraph, splicing in any marks that fall inside it.
@@ -55,8 +80,15 @@
       const mark = document.createElement('mark');
       mark.className = 'rd-mark';
       mark.dataset.hlId = r.highlight.id;
+      mark.dataset.color = window.HighlightStyle.colorOf(r.highlight);
       if (r.highlight.comment) mark.classList.add('has-note');
-      mark.textContent = para.text.slice(s - pStart, e - pStart);
+      // Everything here is in article coordinates: the mark's own text, and
+      // the emphasis ranges translated by emphasisInArticle.
+      const markText = para.text.slice(s - pStart, e - pStart);
+      const relative = (r.emphasis || [])
+        .map((x) => ({ start: x.start - s, end: x.end - s }))
+        .filter((x) => x.end > 0 && x.start < (e - s));
+      window.HighlightStyle.paintRuns(mark, window.HighlightStyle.emphasisRuns(markText, relative));
       el.appendChild(mark);
       cursor = e;
     }

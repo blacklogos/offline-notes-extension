@@ -40,15 +40,26 @@
   </aside>
 
   <div id="selBubble" class="sel-bubble" hidden>
-    <button id="selHighlight" class="sel-btn">Highlight</button>
-    <span class="sel-sep"></span>
-    <button id="selComment" class="sel-btn">Add note</button>
+    <span id="selNew">
+      <button id="selHighlight" class="sel-btn">Highlight</button>
+      <span class="sel-sep"></span>
+      <button id="selComment" class="sel-btn">Add note</button>
+      <span class="sel-sep"></span>
+      <span id="selColors" class="sel-colors"></span>
+    </span>
+    <span id="selExisting" hidden>
+      <button id="selBold" class="sel-btn">Bold</button>
+      <span class="sel-sep"></span>
+      <button id="selRecolor" class="sel-btn">Colour</button>
+      <span id="selColors2" class="sel-colors"></span>
+    </span>
   </div>
 
   <script src="../lib/theme.js"></script>
   <script src="../lib/url-canonical.js"></script>
   <script src="../lib/write-queue.js"></script>
   <script src="../lib/page-storage.js"></script>
+  <script src="../lib/highlight-style.js"></script>
   <script src="../lib/text-locate.js"></script>
   <script src="reader-article.js"></script>
   <script src="reader.js"></script>

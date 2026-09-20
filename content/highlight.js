@@ -347,33 +347,9 @@
     let consumed = 0;
     for (const m of marks) {
       const length = m.textContent.length;
-      const frag = document.createDocumentFragment();
-      for (const part of sliceRuns(runs, consumed, consumed + length)) {
-        if (part.strong && part.text.trim()) {
-          const strong = document.createElement('strong');
-          strong.textContent = part.text;
-          frag.appendChild(strong);
-        } else {
-          frag.appendChild(document.createTextNode(part.text));
-        }
-      }
-      m.textContent = '';
-      m.appendChild(frag);
+      window.HighlightStyle.paintRuns(m, window.HighlightStyle.sliceRuns(runs, consumed, consumed + length));
       consumed += length;
     }
-  }
-
-  // The runs between two offsets of the combined highlight text.
-  function sliceRuns(runs, from, to) {
-    const out = [];
-    let at = 0;
-    for (const run of runs) {
-      const start = at, end = at + run.text.length;
-      at = end;
-      if (end <= from || start >= to) continue;
-      out.push({ text: run.text.slice(Math.max(0, from - start), Math.min(run.text.length, to - start)), strong: run.strong });
-    }
-    return out;
   }
 
   function wrapRange(range, id, color) {

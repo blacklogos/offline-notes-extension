@@ -249,6 +249,55 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       ok(v.highlights > v.before, `reader capture stored (${v.before} -> ${v.highlights})`);
     });
 
+    await test('the reader shows colours and emphasis from the page', async () => {
+      const r = await browser.eval('reader/reader.html?page', `
+        await new Promise(r => setTimeout(r, 600));
+        const body = document.getElementById('articleBody');
+        const marks = [...body.querySelectorAll('mark.rd-mark')];
+        return JSON.stringify({
+          colors: marks.map(m => m.dataset.color),
+          bgs: marks.map(m => getComputedStyle(m).backgroundColor),
+          strongInText: body.querySelectorAll('mark.rd-mark strong').length,
+          strongInRail: document.querySelectorAll('.rail-item-quote strong').length,
+          railColors: [...document.querySelectorAll('.rail-item')].map(i => i.dataset.color),
+        });
+      `);
+      const v = JSON.parse(r);
+      ok(v.colors.includes('green'), `reader shows the picked colour: ${JSON.stringify(v.colors)}`);
+      ok(v.bgs.includes('rgb(197, 220, 192)'), 'painted in the palette green');
+      ok(v.strongInText > 0, 'emphasis rendered in the article text');
+      ok(v.strongInRail > 0, 'emphasis rendered in the rail quote');
+      ok(v.railColors.some(c => c && c !== 'yellow'), 'rail carries the colour too');
+    });
+
+    await test('bolding inside the reader persists to the same highlight', async () => {
+      const r = await browser.eval('reader/reader.html?page', `
+        const body = document.getElementById('articleBody');
+        const before = document.querySelectorAll('mark.rd-mark strong').length;
+        // Select inside a highlight that has no emphasis yet.
+        const mark = [...body.querySelectorAll('mark.rd-mark')].find(m => !m.querySelector('strong'));
+        const tn = [...mark.childNodes].find(n => n.nodeType === 3 && n.data.length > 20);
+        const range = document.createRange(); range.setStart(tn, 2); range.setEnd(tn, 14);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise(r => setTimeout(r, 400));
+        const newHidden = document.getElementById('selNew').hidden;
+        const existingShown = !document.getElementById('selExisting').hidden;
+        document.getElementById('selBold').click();
+        await new Promise(r => setTimeout(r, 2000));
+        const after = document.querySelectorAll('mark.rd-mark strong').length;
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const n = Object.values(s.offline_page_notes)[0];
+        return JSON.stringify({ newHidden, existingShown, before, after,
+          withEmphasis: n.highlights.filter(h => h.emphasis && h.emphasis.length).length });
+      `);
+      const v = JSON.parse(r);
+      ok(v.newHidden, 'Highlight is not offered inside an existing highlight');
+      ok(v.existingShown, 'Bold is offered instead');
+      ok(v.after > v.before, `emphasis painted (${v.before} -> ${v.after})`);
+      ok(v.withEmphasis >= 2, `two highlights now carry emphasis (got ${v.withEmphasis})`);
+    });
+
     await test('a selection dragged across paragraphs is located, not lost', async () => {
       const r = await browser.eval('reader/reader.html?page', `
         const body = document.getElementById('articleBody');
