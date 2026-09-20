@@ -15,8 +15,14 @@ No build/lint/test commands. Iteration loop:
 3. Hit the reload button on the extension card in `chrome://extensions/` to pick up changes (required for `background/background.js` and `manifest.json`; popup/sidebar HTML usually refreshes on reopen).
 4. For popup/sidebar JS changes, close and reopen the popup or side panel.
 
-`node test/run.js` runs the logic tests: quote location, article extraction and
-write serialization. No dependencies. Browser behaviour is not covered there.
+`node test/run.js` runs the logic tests: quote location, article extraction,
+write serialization and backup validation. No dependencies.
+
+`node test/browser/run.js` runs the browser tests against a real headless
+Chrome on a throwaway profile, loading the extension over CDP
+(`Extensions.loadUnpacked`, which is why it passes
+`--enable-unsafe-extension-debugging`; `--load-extension` no longer works).
+`test/browser/cdp.js` is the client.
 
 The remaining harnesses are manual, opened directly in a browser:
 - `test-image-generation.html` — exercises `lib/image-generator.js` + `lib/templates.js` via html2canvas.
@@ -44,6 +50,7 @@ Shared library layer (`lib/`), each file defines a class on the global scope:
 - **`text-locate.js`** — finds a stored quote inside the rebuilt article text. Both sides are normalized because the snapshot's whitespace and punctuation differ from the live DOM.
 - **`vault.js`** — mirrors notes to a folder chosen via the File System Access API. Write-only, sidebar-driven, because `showDirectoryPicker` needs a document and a gesture.
 - **`theme.js`** — paper/white theme switch.
+- **`backup.js`** — `BackupManager`. Owns the full backup shape across every storage key, validates a file before restoring, and summarizes what a restore would replace.
 - **`templates.js`** — 5 HTML-string templates (`paper-default`, `paper-minimal`, `paper-card`, `paper-quote`, `paper-letterhead`) keyed by name. Templates use inline styles and must `escapeHtml()` user content — XSS prevention lives here, not at render time.
 - **`image-generator.js`** — wraps `html2canvas` (bundled locally at `lib/html2canvas.min.js`, not a CDN) to render a template to a 2x PNG and trigger download.
 

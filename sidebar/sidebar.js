@@ -966,3 +966,61 @@ themeToggle.addEventListener('click', async () => {
 });
 
 refreshThemeToggle();
+
+// ---- Backup and restore ----
+//
+// "Your data is yours" only holds if you can get all of it out and put it
+// back. Restore replaces rather than merges: merging two sets of highlights
+// without a shared clock would invent an order that never existed, so the
+// confirmation says so plainly before anything is written.
+
+const backup = new BackupManager();
+const backupStatusEl = document.getElementById('backupStatus');
+const backupFileInput = document.getElementById('backupFile');
+
+function setBackupStatus(text) {
+  backupStatusEl.textContent = text;
+}
+
+document.getElementById('backupExport').addEventListener('click', async () => {
+  try {
+    const data = await backup.export();
+    backup.download(data);
+    const s = backup.inspect(data).summary;
+    setBackupStatus(`Exported ${s.notes} note(s), ${s.pageNotes} page(s), ${s.highlights} highlight(s)`);
+  } catch (err) {
+    setBackupStatus('Export failed: ' + err.message);
+  }
+});
+
+document.getElementById('backupImport').addEventListener('click', () => backupFileInput.click());
+
+backupFileInput.addEventListener('change', async () => {
+  const file = backupFileInput.files && backupFileInput.files[0];
+  backupFileInput.value = ''; // let the same file be chosen twice
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const check = backup.inspect(parsed);
+    if (!check.valid) { setBackupStatus(check.errors.join(' ')); return; }
+
+    // Never restore an opaque file: say what is in it and what will be lost.
+    const s = check.summary;
+    const current = backup.inspect(await backup.export()).summary;
+    const when = s.exportedAt ? ` from ${new Date(s.exportedAt).toLocaleString()}` : '';
+    const message =
+      `Restore this backup${when}?\n\n` +
+      `It contains ${s.notes} note(s), ${s.pageNotes} page(s), ${s.highlights} highlight(s), ${s.articles} saved article(s).\n\n` +
+      `This REPLACES what you have now: ${current.notes} note(s), ${current.pageNotes} page(s), ` +
+      `${current.highlights} highlight(s). That cannot be undone.`;
+    if (!confirm(message)) { setBackupStatus('Restore cancelled'); return; }
+
+    await backup.restore(check.data);
+    await loadNotes();
+    await loadPageNotes();
+    await applyStoredTheme();
+    setBackupStatus(`Restored ${s.notes} note(s) and ${s.pageNotes} page(s)`);
+  } catch (err) {
+    setBackupStatus('Could not read that file: ' + err.message);
+  }
+});
