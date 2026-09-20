@@ -40,15 +40,21 @@ This extension was built using **Test-Driven Development (TDD)** principles:
 **Run Tests:**
 ```bash
 node test/run.js                 # Logic tests, no dependencies
+node test/browser/run.js         # Browser tests in a headless, isolated Chrome
 open test-image-generation.html  # Image generation, manual harness
 open test-templates.html         # Template preview tool
 ```
 
 `node test/run.js` covers the pure logic where the subtle bugs live: locating
 a stored quote inside a reshaped article snapshot, article extraction and
-block offsets, and write serialization. Browser behaviour (highlight repaint,
-the capture bubble, the reader UI) is not covered and still needs a real
-Chrome.
+block offsets, write serialization, and backup validation.
+
+`node test/browser/run.js` drives a real headless Chrome on a throwaway
+profile and covers what only a browser can prove: capture and repaint, the
+in-page indicator, article extraction, the reader locating highlights inside a
+saved snapshot, a reader capture landing on the source page, concurrent writes
+from two contexts, and a backup round trip. Set `CHROME_PATH` if Chrome is
+installed somewhere unusual.
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 
@@ -258,7 +264,7 @@ The `StorageManager` class in `/lib/storage.js` provides:
 ### Notes not saving?
 - Check Chrome Developer Tools console for errors
 - Verify storage permissions in manifest
-- Export a backup first (Settings → export). Clearing extension data destroys your only copy
+- Export a backup first (sidebar footer → Backup → Export backup). Clearing extension data destroys your only copy
 
 ### Sidebar not opening?
 - Make sure you're using Chrome 114+ (Side Panel API requirement)
