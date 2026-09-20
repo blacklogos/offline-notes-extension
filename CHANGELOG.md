@@ -2,6 +2,92 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-09-20
+
+### Read what you saved, offline
+
+A saved page can now be opened in a dedicated reader: one column, adjustable
+size, serif or sans, light or dark, and your reading position remembered. Your
+highlights are painted in the text with a rail listing them in order; clicking
+either side focuses the other. Quotes that no longer match appear under "Not
+located in this saved article" rather than disappearing.
+
+Selecting text inside the reader saves to the **source page**, not the
+extension, so a highlight made while reading offline reappears on the real
+article when you next visit it.
+
+Reach it from the toolbar popup, which now shows the current page: **Read
+offline** when an article is saved, **Save & read** when it is not.
+
+### Save the article, not just the quote
+
+Right-click a page or press `Alt+S` to store its readable text on that URL's
+page note, so a highlight outlives the page it came from. Stored as plain text
+on purpose: rendering saved markup would fetch remote images and embeds, and
+opening a saved page must not touch the network. Headings, lists and quotes are
+preserved as structure. Requires the new `unlimitedStorage` permission, since
+article text passes the default 10MB cap within a few dozen pages.
+
+### A folder of Markdown on your disk
+
+Point the extension at a folder and every note and page note is mirrored there
+as Markdown, readable by Obsidian, Spotlight, grep and git. Write-only, flat,
+no deletes, no read-back, no sync engine. Nothing is transmitted; if the folder
+you choose is managed by a sync service, that service may sync it.
+
+### Highlights that actually show up
+
+Repaint ran once at `document_idle`, so on any site that renders its article
+later, which is most modern article pages, saved highlights silently never
+appeared while the badge still claimed they existed. Unresolved highlights are
+now retried as the page changes, and SPA navigation triggers a repaint.
+
+A page you have highlighted before shows a small corner indicator, honest about
+what it can display: "4 highlights · 3 on this page".
+
+### Data loss, fixed
+
+- **Concurrent saves destroyed each other.** Every mutation rewrote a whole
+  collection after reading it, so simultaneous writers overwrote one another:
+  eight simultaneous appends left two highlights. Writes are now serialized,
+  and the service worker is the single writing context for both collections.
+- **Backups contained no highlights.** `exportAllData()` omitted every page
+  note, so a backup a user trusted held only manual notes.
+- **Comments typed in the capture bubble were discarded**, every time.
+- **The note editor threw away edits** when closed with X, the backdrop or Escape.
+- **A failed save ate the popup draft**, and Clear left it behind to resurrect.
+- **Save then annotate created two highlights** for one selection.
+- **A background change rebuilt the page detail** over an open comment editor.
+
+### Interface
+
+The sidebar went from five stacked bands of chrome to two, roughly four visible
+notes to nine, with markdown stripped from previews. The popup starts on the
+note body instead of an optional title field, and a blank title is taken from
+the first line rather than saved as "Untitled". The capture bubble is one
+surface that measures itself and stays on screen. An opt-in White theme sits
+beside the warm-paper default.
+
+Exports now say what they will do: selecting three quotes copies three quotes,
+not three quotes plus the whole article. The 280-character cap on comments is
+gone, `Ctrl/Cmd+K` no longer erases a draft with no undo, and deleting a page
+note names the saved article it destroys.
+
+### Typography
+
+Vietnamese was rendering incorrectly: Charter and Iowan Old Style report full
+coverage to every programmatic check yet render "dựa" as "dủa", because macOS
+substitutes the horn-plus-tone composites from another face. Georgia renders
+the set correctly and now leads the serif stack. The sans option uses the
+bundled Inter Display, identical on every machine.
+
+### Tests
+
+`node test/run.js` covers quote location against a reshaped snapshot, article
+extraction and block offsets, and write serialization. No dependencies. It
+found a real bug on its first run: a top-level `<script>` had its source
+appended into saved article text.
+
 ## [1.1.0] - 2026-04-15
 
 ### Highlight capture

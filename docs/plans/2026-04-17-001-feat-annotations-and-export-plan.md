@@ -1,12 +1,18 @@
 ---
 title: "feat: Per-Highlight Annotations + Highlight Export"
 type: feat
-status: active
+status: complete
 date: 2026-04-17
 origin: docs/brainstorms/2026-04-17-annotations-export-pagesave-requirements.md
 ---
 
 # feat: Per-Highlight Annotations + Highlight Export
+
+> **Closed 2026-09-20 in v1.2.0.** All five units shipped in commit a28e756
+> (2026-04-17) but were never verified or ticked. Verification in September
+> found the bubble comment path broken from the start: `done()` read `saveCtx`
+> after `cleanup()` had nulled it, so Unit 2 never worked in production. Fixed
+> in 4761ba5.
 
 ## Overview
 
@@ -78,7 +84,7 @@ See origin: [`docs/brainstorms/2026-04-17-annotations-export-pagesave-requiremen
 
 ## Implementation Units
 
-- [ ] **Unit 1: Schema + storage — add `comment` field and update methods**
+- [x] **Unit 1: Schema + storage — add `comment` field and update methods**
 
 **Goal:** Extend the Highlight schema with `comment`, add `updateHighlightComment` to `PageNoteStorage`, update the SAVE_HIGHLIGHT handler in the service worker to accept an optional comment.
 
@@ -113,7 +119,7 @@ See origin: [`docs/brainstorms/2026-04-17-annotations-export-pagesave-requiremen
 
 ---
 
-- [ ] **Unit 2: Bubble annotation — expand post-save with comment textarea**
+- [x] **Unit 2: Bubble annotation — expand post-save with comment textarea**
 
 **Goal:** After a highlight is saved (bubble shows "Saved"), the bubble expands to reveal a small textarea for an optional comment. Typing and pressing Enter (or blurring) saves the comment via UPDATE_HIGHLIGHT_COMMENT. Dismissing without typing leaves the comment empty.
 
@@ -149,7 +155,7 @@ See origin: [`docs/brainstorms/2026-04-17-annotations-export-pagesave-requiremen
 
 ---
 
-- [ ] **Unit 3: Sidebar annotation + selection UI**
+- [x] **Unit 3: Sidebar annotation + selection UI**
 
 **Goal:** Each highlight card in the Pages detail modal shows the comment (editable), a checkbox for selective export, and a select-all toggle. The editable comment area auto-saves on blur via UPDATE_HIGHLIGHT_COMMENT.
 
@@ -191,7 +197,7 @@ See origin: [`docs/brainstorms/2026-04-17-annotations-export-pagesave-requiremen
 
 ---
 
-- [ ] **Unit 4: Page-note markdown export module**
+- [x] **Unit 4: Page-note markdown export module**
 
 **Goal:** Create `lib/page-note-export.js` with functions to serialize a page note (or a subset of its highlights) to markdown. Handles single-page and batch (all page notes) export.
 
@@ -244,7 +250,7 @@ See origin: [`docs/brainstorms/2026-04-17-annotations-export-pagesave-requiremen
 
 ---
 
-- [ ] **Unit 5: Sidebar export wiring — download, clipboard, export-all buttons**
+- [x] **Unit 5: Sidebar export wiring — download, clipboard, export-all buttons**
 
 **Goal:** Wire the export module into the sidebar UI. Page-note detail modal gets "Export Markdown" (download) and "Copy all" (clipboard) buttons that respect checkbox selection. Sidebar header gets "Export all page notes" option alongside the existing "Export all notes" button.
 
