@@ -37,9 +37,16 @@ This extension was built using **Test-Driven Development (TDD)** principles:
 
 **Run Tests:**
 ```bash
-open test-image-generation.html  # Comprehensive automated test suite
+node test/run.js                 # Logic tests, no dependencies
+open test-image-generation.html  # Image generation, manual harness
 open test-templates.html         # Template preview tool
 ```
+
+`node test/run.js` covers the pure logic where the subtle bugs live: locating
+a stored quote inside a reshaped article snapshot, article extraction and
+block offsets, and write serialization. Browser behaviour (highlight repaint,
+the capture bubble, the reader UI) is not covered and still needs a real
+Chrome.
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 
