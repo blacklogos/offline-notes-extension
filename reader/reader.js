@@ -25,6 +25,11 @@
     sizeUp: document.getElementById('sizeUp'),
     sizeDown: document.getElementById('sizeDown'),
     selBubble: document.getElementById('selBubble'),
+    selNew: document.getElementById('selNew'),
+    selExisting: document.getElementById('selExisting'),
+    selBold: document.getElementById('selBold'),
+    selColors: document.getElementById('selColors'),
+    selColors2: document.getElementById('selColors2'),
     selHighlight: document.getElementById('selHighlight'),
     selComment: document.getElementById('selComment'),
   };
@@ -32,6 +37,36 @@
   const pageStorage = new PageNoteStorage();
   let note = null, located = [], lost = [], sizeIdx = 2, activeId = null;
   let face = 'serif', dark = false;
+  let currentColor = window.HighlightStyle.DEFAULT_HIGHLIGHT_COLOR;
+  let activeMark = null; // the highlight the selection sits inside, if any
+
+  // The same palette and the same remembered choice as the page bubble, so a
+  // colour picked while browsing is still selected while reading.
+  function buildSwatches(host, onPick) {
+    for (const [name, def] of Object.entries(window.HighlightStyle.HIGHLIGHT_COLORS)) {
+      const dot = document.createElement('b');
+      dot.style.background = def.light;
+      dot.title = def.label;
+      dot.dataset.color = name;
+      dot.addEventListener('mousedown', (e) => e.preventDefault());
+      dot.addEventListener('click', (e) => { e.preventDefault(); onPick(name); });
+      host.appendChild(dot);
+    }
+  }
+
+  function paintSwatches() {
+    document.querySelectorAll('.sel-colors b').forEach((d) => d.classList.toggle('on', d.dataset.color === currentColor));
+  }
+
+  async function pickColor(name) {
+    currentColor = name;
+    paintSwatches();
+    try { await chrome.storage.local.set({ offline_notes_last_color: name }); } catch (_) {}
+    if (activeMark) {
+      await chrome.runtime.sendMessage({ type: 'RECOLOR_HIGHLIGHT', url: note.url, highlightId: activeMark, color: name });
+      await reload();
+    }
+  }
 
   const pageId = new URLSearchParams(location.search).get('page');
 
@@ -77,12 +112,26 @@
     if (sc.siteName) bits.push(sc.siteName);
     if (sc.savedAt) bits.push('saved ' + new Date(sc.savedAt).toLocaleDateString());
     meta.appendChild(document.createTextNode(bits.join(' · ')));
-    meta.appendChild(document.createTextNode('  '));
-    const a = document.createElement('a');
-    a.href = note.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-    a.textContent = 'Open original';
-    meta.appendChild(a);
+    // An imported file has no web original, so offering the link would be a
+    // dead end; show where it came from instead.
+    if (window.FileImport && window.FileImport.isImportedUrl(note.url)) {
+      const sc = note.savedContent || {};
+      if (sc.sourceFile) meta.appendChild(document.createTextNode('  ' + sc.sourceFile));
+    } else {
+      meta.appendChild(document.createTextNode('  '));
+      const a = document.createElement('a');
+      a.href = note.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = 'Open original';
+      meta.appendChild(a);
+    }
     el.docHead.append(h1, meta);
+    // The summary belongs above the article it condenses.
+    if (note.summary) {
+      const sum = document.createElement('div');
+      sum.className = 'doc-summary';
+      sum.textContent = note.summary;
+      el.docHead.appendChild(sum);
+    }
   }
 
   function setNotice(text, actionLabel, onAction) {
@@ -148,8 +197,10 @@
     item.dataset.hlId = h.id;
     const q = document.createElement('div');
     q.className = 'rail-item-quote';
-    q.textContent = (h.anchor && h.anchor.exact) || h.text || '';
+    const quote = (h.anchor && h.anchor.exact) || h.text || '';
+    window.HighlightStyle.paintRuns(q, window.HighlightStyle.emphasisRuns(quote, h.emphasis));
     item.appendChild(q);
+    item.dataset.color = window.HighlightStyle.colorOf(h);
     if (h.comment) {
       const c = document.createElement('div');
       c.className = 'rail-item-note';
@@ -205,6 +256,12 @@
   }
 
   function showBubbleFor(range) {
+    const mark = enclosingMark(range);
+    activeMark = mark ? mark.dataset.hlId : null;
+    // Inside an existing highlight, Highlight would store an overlapping copy;
+    // offer the second-pass actions instead.
+    el.selNew.hidden = !!activeMark;
+    el.selExisting.hidden = !activeMark;
     const rect = range.getBoundingClientRect();
     el.selBubble.hidden = false;
     const b = el.selBubble.getBoundingClientRect();
@@ -216,20 +273,50 @@
     el.selBubble.style.left = left + 'px';
   }
 
+  // Offsets of the selection within the highlight's own text, so emphasis
+  // travels with the quote rather than with the article.
+  function selectionOffsetsInMark(markId) {
+    const marks = [...el.body.querySelectorAll(`mark.rd-mark[data-hl-id="${markId}"]`)];
+    const sel = window.getSelection();
+    if (!marks.length || !sel || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    let consumed = 0, start = -1, end = -1;
+    for (const m of marks) {
+      const walker = document.createTreeWalker(m, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = walker.nextNode())) {
+        if (n === range.startContainer) start = consumed + range.startOffset;
+        if (n === range.endContainer) end = consumed + range.endOffset;
+        consumed += n.data.length;
+      }
+    }
+    if (start < 0 || end < 0 || end <= start) return null;
+    return { start, end };
+  }
+
+  async function emphasiseSelection() {
+    if (!activeMark) return;
+    const offsets = selectionOffsetsInMark(activeMark);
+    hideBubble();
+    if (!offsets) return;
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'EMPHASISE_HIGHLIGHT', url: note.url, highlightId: activeMark,
+        start: offsets.start, end: offsets.end,
+      });
+      window.getSelection().removeAllRanges();
+      await reload();
+    } catch (err) {
+      console.error('Emphasis failed', err);
+    }
+  }
+
   // A highlight made here belongs to the SOURCE page, not to this extension
   // URL, so it shows up in the sidebar and on the live page like any other.
   async function captureSelection(withComment) {
     const range = currentSelectionRange();
     if (!range) return;
-    const existing = enclosingMark(range);
-    if (existing) {
-      // Already saved. Focus it rather than storing the same words twice.
-      hideBubble();
-      window.getSelection().removeAllRanges();
-      focusHighlight(existing.dataset.hlId, false);
-      if (el.rail.hidden) window.__setRail(true);
-      return;
-    }
+
     const text = (note.savedContent && note.savedContent.text) || '';
     const start = window.ReaderArticle.offsetOf(el.body, range.startContainer, range.startOffset);
     const end = window.ReaderArticle.offsetOf(el.body, range.endContainer, range.endOffset);
@@ -246,7 +333,7 @@
     try {
       const r = await chrome.runtime.sendMessage({
         type: 'SAVE_HIGHLIGHT',
-        payload: { text: exact, anchor, url: note.url, pageTitle: note.pageTitle },
+        payload: { text: exact, anchor, url: note.url, pageTitle: note.pageTitle, color: currentColor },
       });
       if (!r || !r.ok) throw new Error((r && r.error) || 'Save failed');
       let comment = '';
@@ -304,6 +391,12 @@
     el.sizeDown.addEventListener('click', () => { sizeIdx = Math.max(0, sizeIdx - 1); applySize(); savePrefs({ sizeIdx }); });
     el.fontToggle.addEventListener('click', () => { face = face === 'serif' ? 'sans' : 'serif'; applyFace(); savePrefs({ face }); });
     el.darkToggle.addEventListener('click', () => { dark = !dark; applyDark(); savePrefs({ dark }); });
+    buildSwatches(el.selColors, pickColor);
+    buildSwatches(el.selColors2, pickColor);
+    const storedColor = (await chrome.storage.local.get('offline_notes_last_color')).offline_notes_last_color;
+    if (storedColor && window.HighlightStyle.HIGHLIGHT_COLORS[storedColor]) currentColor = storedColor;
+    paintSwatches();
+    el.selBold.addEventListener('click', () => emphasiseSelection());
     el.selHighlight.addEventListener('click', () => captureSelection(false));
     el.selComment.addEventListener('click', () => captureSelection(true));
 

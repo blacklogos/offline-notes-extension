@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Offline Notes - Local Markdown & Image Creator",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Create notes offline, save highlights from any page, export to Markdown, generate images. All data stored locally.",
   "permissions": [
     "storage",
@@ -45,6 +45,8 @@
       "js": [
         "lib/icons.js",
         "lib/url-canonical.js",
+        "lib/text-blocks.js",
+        "lib/highlight-style.js",
         "lib/anchor.js",
         "content/highlight.js"
       ],

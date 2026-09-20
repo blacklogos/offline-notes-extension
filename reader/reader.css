@@ -154,6 +154,27 @@ mark.rd-mark {
   cursor: pointer;
 }
 mark.rd-mark.is-active { outline: 2px solid var(--sage-500); outline-offset: 1px; }
+
+/* Colours, mirroring lib/highlight-style.js. Dark values are separate because
+   a marker bright enough for paper glows at night. */
+mark.rd-mark[data-color="green"]  { background: #C5DCC0; }
+mark.rd-mark[data-color="blue"]   { background: #BFD4E8; }
+mark.rd-mark[data-color="pink"]   { background: #EFC8CE; }
+mark.rd-mark[data-color="purple"] { background: #D6C9E6; }
+:root.rd-dark mark.rd-mark[data-color="green"]  { background: #2F4A2C; }
+:root.rd-dark mark.rd-mark[data-color="blue"]   { background: #26405C; }
+:root.rd-dark mark.rd-mark[data-color="pink"]   { background: #5A2C36; }
+:root.rd-dark mark.rd-mark[data-color="purple"] { background: #3E2F55; }
+
+/* Forte's third layer: the part of the quote that mattered most. */
+mark.rd-mark strong { font-weight: 700; }
+.rail-item-quote strong { font-weight: 700; }
+
+/* The rail carries the same colour as the text it points at. */
+.rail-item[data-color="green"]  { border-left-color: #C5DCC0; }
+.rail-item[data-color="blue"]   { border-left-color: #BFD4E8; }
+.rail-item[data-color="pink"]   { border-left-color: #EFC8CE; }
+.rail-item[data-color="purple"] { border-left-color: #D6C9E6; }
 mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
 
 .notice {
@@ -220,4 +241,28 @@ mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
 
 @media (max-width: 900px) {
   .rail { width: 100%; top: auto; height: 50vh; border-left: none; border-top: 1px solid var(--paper-200); }
+}
+
+/* Colour swatches in the reader's selection bubble, matching the page bubble. */
+.sel-colors { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; }
+.sel-colors b {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid rgba(42, 38, 34, .25);
+  cursor: pointer; display: inline-block;
+}
+.sel-colors b.on { box-shadow: 0 0 0 2px var(--sage-500); }
+#selNew, #selExisting { display: inline-flex; align-items: center; }
+#selNew[hidden], #selExisting[hidden] { display: none; }
+
+/* The page in the reader's own words, above the article it condenses. */
+.doc-summary {
+  font-family: var(--rd-face);
+  font-size: 0.92em;
+  line-height: 1.6;
+  color: var(--ink-700);
+  background: var(--paper-100);
+  border-left: 3px solid var(--sage-500);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-5);
 }

@@ -9,7 +9,7 @@
  */
 module.exports = ({ test, eq, ok, root }) => {
   const fs = require('fs');
-  const src = fs.readFileSync(root + '/lib/page-content.js', 'utf8');
+  const src = fs.readFileSync(root + '/lib/text-blocks.js', 'utf8');
 
   // Minimal DOM: enough for the extractor's walk (elements, text nodes, tags).
   function makeDoc(html) {
@@ -26,8 +26,8 @@ module.exports = ({ test, eq, ok, root }) => {
     const stubDoc = { implementation: { createHTMLDocument: () => ({ body: doc }) } };
     const captured = {};
     const patched = src.replace(
-      'window.__offlineNotesExtractArticle =',
-      'captured.htmlToBlocks = htmlToBlocks; window.__offlineNotesExtractArticle ='
+      'const api = { htmlToBlocks',
+      'captured.htmlToBlocks = htmlToBlocks; const api = { htmlToBlocks'
     );
     new Function('window', 'document', 'Node', 'console', 'captured', patched)(
       {}, stubDoc, NODE, console, captured

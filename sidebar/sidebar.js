@@ -536,6 +536,8 @@ function openPageModal(note) {
   pageMetadataEl.textContent = `${note.highlights.length} highlight${note.highlights.length === 1 ? '' : 's'} · Updated ${relativeTime(note.updatedAt)}`;
   renderHighlights(note);
   renderReaderPanel(note);
+  const summaryEl = document.getElementById('pageSummary');
+  summaryEl.value = note.summary || '';
   pageModal.classList.remove('hidden');
 }
 
@@ -548,6 +550,14 @@ const clearSavedContentBtn = document.getElementById('clearSavedContent');
 
 // A 13px scrolling box inside a 380px panel was never a reading surface. The
 // panel now reports what is saved and hands off to the full reader.
+let currentHighlightOrder = window.HighlightOrder.DEFAULT_HIGHLIGHT_ORDER;
+
+// One order for the list and for export, so a page note never reads back in
+// two different sequences.
+function orderedHighlights(note) {
+  return window.HighlightOrder.sortHighlights(note.highlights, currentHighlightOrder);
+}
+
 function renderReaderPanel(note) {
   const sc = note && note.savedContent;
   if (!sc) { readerPanel.classList.add('hidden'); return; }
@@ -583,7 +593,7 @@ function closePageModal() {
 
 function renderHighlights(note) {
   pageHighlightsHost.innerHTML = '';
-  note.highlights.slice().reverse().forEach((h) => {
+  window.HighlightOrder.sortHighlights(note.highlights, currentHighlightOrder).forEach((h) => {
     const card = document.createElement('div');
     card.className = 'highlight-card';
     card.dataset.highlightId = h.id;
@@ -813,7 +823,8 @@ document.getElementById('exportPageMd')?.addEventListener('click', () => {
   const ids = getSelectedHighlightIds();
   // A subset selection means "these quotes", not "these quotes plus several
   // thousand words of article".
-  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const note = { ...currentPageNote, highlights: orderedHighlights(currentPageNote) };
+  if (ids) note.savedContent = null;
   const md = pageNoteExporter.exportPageNote(note, ids);
   const fname = pageNoteExporter.sanitizeFilename(currentPageNote.pageTitle);
   pageNoteExporter.downloadMarkdown(md, fname);
@@ -822,7 +833,8 @@ document.getElementById('exportPageMd')?.addEventListener('click', () => {
 document.getElementById('copyPageMd')?.addEventListener('click', async () => {
   if (!currentPageNote) return;
   const ids = getSelectedHighlightIds();
-  const note = ids ? { ...currentPageNote, savedContent: null } : currentPageNote;
+  const note = { ...currentPageNote, highlights: orderedHighlights(currentPageNote) };
+  if (ids) note.savedContent = null;
   const md = pageNoteExporter.exportPageNote(note, ids);
   try {
     await pageNoteExporter.copyToClipboard(md);
@@ -1023,4 +1035,82 @@ backupFileInput.addEventListener('change', async () => {
   } catch (err) {
     setBackupStatus('Could not read that file: ' + err.message);
   }
+});
+
+// ---- Import a local file ----
+//
+// A Markdown or HTML file becomes an ordinary page note, so the reader,
+// highlighting, export and the folder mirror all work on it unchanged. This
+// avoids file:// entirely: content scripts do not run there without a manual
+// per-extension permission, and a .md file in Chrome is one undifferentiated
+// block of preformatted text with no structure to read.
+
+const importFileInput = document.getElementById('importFile');
+
+document.getElementById('importFileBtn').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async () => {
+  const file = importFileInput.files && importFileInput.files[0];
+  importFileInput.value = ''; // allow re-importing the same file
+  if (!file) return;
+  const status = document.getElementById('pagesEmptyState');
+  try {
+    if (!FileImport.kindOf(file.name)) {
+      alert('Only Markdown and HTML files can be imported.\n\nPDFs are not supported: Chrome renders them without accessible text, so a highlight could not be anchored back to the page.');
+      return;
+    }
+    const savedContent = FileImport.buildSavedContent(file.name, await file.text());
+    if (!savedContent) { alert('That file has no readable text to import.'); return; }
+
+    const url = FileImport.importUrlFor(file.name);
+    const res = await chrome.runtime.sendMessage({
+      type: 'IMPORT_FILE', url, pageTitle: savedContent.title, savedContent,
+    });
+    if (!res || !res.ok) throw new Error((res && res.error) || 'Import failed');
+
+    await loadPageNotes();
+    // Re-importing an edited file updates the same note, keeping its highlights.
+    const note = allPageNotes.find((n) => n.url === url);
+    if (note) openPageModal(note);
+    void status;
+  } catch (err) {
+    alert('Could not import that file: ' + err.message);
+  }
+});
+
+// ---- Summary and listing order ----
+
+const pageSummaryEl = document.getElementById('pageSummary');
+const highlightOrderEl = document.getElementById('highlightOrder');
+
+pageSummaryEl.addEventListener('blur', async () => {
+  if (!currentPageNote) return;
+  const value = pageSummaryEl.value.trim();
+  if (value === (currentPageNote.summary || '')) return;
+  await chrome.runtime.sendMessage({ type: 'SET_SUMMARY', pageNoteId: currentPageNote.id, summary: value });
+  currentPageNote.summary = value;
+  await loadPageNotes();
+});
+
+highlightOrderEl.addEventListener('change', async () => {
+  currentHighlightOrder = await window.HighlightOrder.saveHighlightOrder(highlightOrderEl.value);
+  if (currentPageNote) renderHighlights(currentPageNote);
+});
+
+(async () => {
+  currentHighlightOrder = await window.HighlightOrder.loadHighlightOrder();
+  highlightOrderEl.value = currentHighlightOrder;
+})();
+
+// Cornell is a layout over the same records: the comment is the cue, the
+// quote is the note, the page summary is the summary. Nothing new to type,
+// and the existing export is untouched.
+const cornellExporter = new CornellExporter();
+
+document.getElementById('exportCornell').addEventListener('click', () => {
+  if (!currentPageNote) return;
+  const ids = getSelectedHighlightIds();
+  const note = { ...currentPageNote, highlights: orderedHighlights(currentPageNote) };
+  const md = cornellExporter.export(note, ids);
+  pageNoteExporter.downloadMarkdown(md, cornellExporter.filename(currentPageNote));
 });
