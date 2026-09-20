@@ -128,4 +128,18 @@ module.exports = ({ test, eq, ok, root }) => {
     eq(tgt.slice(r.start, r.end), ' two');
     eq(tgt.slice(r.start, r.end).trim(), 'two');
   });
+
+  test('context identifies an occurrence beyond the fiftieth', () => {
+    // A cap on collected hits threw away exactly the occurrence the stored
+    // context was there to identify.
+    const hay = 'plain quote '.repeat(60) + 'unique quote end';
+    const hit = locate(hay, 'quote', { prefix: 'unique', suffix: 'end' });
+    ok(hit, 'should find the identifiable occurrence');
+    ok(hit.start > 700, `and it is the late one (got ${hit.start})`);
+  });
+
+  test('many occurrences with no context still refuse to guess', () => {
+    const hay = 'plain quote '.repeat(60);
+    eq(locate(hay, 'quote', {}), null);
+  });
 };

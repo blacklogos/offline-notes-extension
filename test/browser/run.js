@@ -58,16 +58,19 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
         await chrome.tabs.reload(tab.id);
         await new Promise(r => setTimeout(r, 3500));
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
           const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
           const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
           await new Promise(r => setTimeout(r, 900));
-          document.querySelector('offline-notes-bubble').shadowRoot.getElementById('saveBtn').click();
-          await new Promise(r => setTimeout(r, 1500));
-          return document.querySelectorAll('.offline-notes-highlight').length;
         }});
+        // The bubble lives in a closed shadow root now, so it is driven by
+        // message: a page cannot reach it, and neither can a test.
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'saveBtn' });
+        await new Promise(r => setTimeout(r, 1600));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id },
+          func: () => document.querySelectorAll('.offline-notes-highlight').length });
         const s = await chrome.storage.local.get('offline_page_notes');
         const note = Object.values(s.offline_page_notes || {})[0];
         return JSON.stringify({ marks: res[0].result, stored: note ? note.highlights.length : 0, url: note && note.url });
@@ -81,23 +84,24 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
     await test('a colour picked in the bubble is stored and painted', async () => {
       const r = await browser.eval(sw, `
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const p = [...document.querySelectorAll('p')].filter(x => x.offsetHeight > 0 && x.innerText.trim().length > 200)[1];
           const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 80);
           const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-          await sleep(900);
-          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
-          const swatches = sr.querySelectorAll('.sw b').length;
-          sr.querySelector('.sw b[data-color="green"]').click();
-          await sleep(250);
-          sr.getElementById('saveBtn').click();
-          await sleep(1800);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const state = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', color: 'green' });
+        await new Promise(r => setTimeout(r, 300));
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'saveBtn' });
+        await new Promise(r => setTimeout(r, 1900));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => {
           const marks = [...document.querySelectorAll('.offline-notes-highlight')];
           const green = marks.find(m => m.getAttribute('data-color') === 'green');
-          return { swatches, painted: !!green, bg: green && getComputedStyle(green).backgroundColor };
+          return { painted: !!green, bg: green && getComputedStyle(green).backgroundColor };
         }});
+        res[0].result.swatches = state.state.swatches;
         await new Promise(r => setTimeout(r, 800));
         const s = await chrome.storage.local.get('offline_page_notes');
         const n = Object.values(s.offline_page_notes)[0];
@@ -113,25 +117,24 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
     await test('selecting inside a highlight offers Bold, and it persists', async () => {
       const r = await browser.eval(sw, `
         const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
-        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
+        const sel0 = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
           const mark = document.querySelector('.offline-notes-highlight');
           const tn = [...mark.childNodes].find(n => n.nodeType === 3);
           const range = document.createRange(); range.setStart(tn, 5); range.setEnd(tn, 20);
           const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-          await sleep(900);
-          const sr = document.querySelector('offline-notes-bubble').shadowRoot;
-          const out = {
-            selected: range.toString(),
-            saveBarHidden: sr.querySelector('.bar').classList.contains('off'),
-            markBarShown: sr.getElementById('markBar').classList.contains('on'),
-          };
-          sr.getElementById('boldBtn').click();
-          await sleep(2200);
-          out.strongCount = document.querySelectorAll('.offline-notes-highlight strong').length;
-          out.strongText = (document.querySelector('.offline-notes-highlight strong') || {}).textContent;
-          return out;
+          await new Promise(r => setTimeout(r, 900));
+          return range.toString();
         }});
+        const st = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'boldBtn' });
+        await new Promise(r => setTimeout(r, 2300));
+        const res = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({
+          strongCount: document.querySelectorAll('.offline-notes-highlight strong').length,
+          strongText: (document.querySelector('.offline-notes-highlight strong') || {}).textContent,
+        })});
+        res[0].result.selected = sel0[0].result;
+        res[0].result.saveBarHidden = st.state.saveBarHidden;
+        res[0].result.markBarShown = st.state.markBarShown;
         await new Promise(r => setTimeout(r, 800));
         const s = await chrome.storage.local.get('offline_page_notes');
         const n = Object.values(s.offline_page_notes)[0];
@@ -530,6 +533,43 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       ok(v.ok, 'the note saved');
       ok(v.after > v.before, `a file was added (${v.before} -> ${v.after})`);
       ok(v.onDisk, 'the new note is on disk, not just counted');
+    });
+
+    await test('the page cannot read private comments out of the bubble', async () => {
+      // The bubble is in a closed shadow root: a site you annotate must not be
+      // able to read what you wrote about it.
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4000));
+        // The bubble only exists once there is a selection, so make one.
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
+          const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
+          const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 30);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const probe = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          world: 'MAIN',
+          func: () => {
+            const host = document.querySelector('offline-notes-bubble');
+            return {
+              hostVisible: !!host,
+              shadowReachable: !!(host && host.shadowRoot),
+              textFound: host && host.shadowRoot
+                ? !!host.shadowRoot.getElementById('ta')
+                : false,
+            };
+          },
+        });
+        return JSON.stringify(probe[0].result);
+      `);
+      const v = JSON.parse(r);
+      ok(v.hostVisible, 'the host element is in the page, as it must be');
+      eq(v.shadowReachable, false, 'but the page cannot open its shadow root');
+      eq(v.textFound, false, 'and cannot reach the comment box');
     });
 
     await test('backup round-trips every key', async () => {

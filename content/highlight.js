@@ -52,7 +52,12 @@
     if (host) host.remove();
     host = document.createElement(BUBBLE_TAG);
     host.style.cssText = 'all:initial;position:absolute;z-index:2147483647;top:0;left:0;pointer-events:none;';
-    root = host.attachShadow({ mode: 'open' });
+    // Closed: with an open root the host page could read the comment box via
+    // host.shadowRoot, exposing private notes to the very site they are about.
+    // Only this script holds the reference. (A page that replaced
+    // Element.prototype.attachShadow before document_idle could still capture
+    // it; that is a targeted attack, not the drive-by this prevents.)
+    root = host.attachShadow({ mode: 'closed' });
     root.innerHTML = `
       <style>
         :host{all:initial}
@@ -183,6 +188,9 @@
   function hide() {
     if (!host || commenting) return;
     root.getElementById('cm').classList.remove('on');
+    // Clear rather than merely hide: a hidden textarea still holds its value.
+    const ta = root.getElementById('ta');
+    if (ta) ta.value = '';
     wrap.classList.remove('on');
   }
 
@@ -321,6 +329,41 @@
     if (msg.type === 'CAPTURE_FROM_SHORTCUT') { doCapture(false); sr({ ok: true }); return true; }
     if (msg.type === 'CAPTURE_FROM_CONTEXT_MENU') { doCapture(false); sr({ ok: true }); return true; }
     if (msg.type === 'SCROLL_TO_HIGHLIGHT') { scrollTo(msg.highlightId); sr({ ok: true }); return true; }
+
+    // Automation hook for the browser tests. The shadow root is closed, so
+    // nothing outside this script can reach the bubble; a page cannot send
+    // runtime messages, so only extension contexts can use this.
+    if (msg.type === 'BUBBLE_ACTION') {
+      const result = { ok: true };
+      try {
+        if (!root) { sr({ ok: false, error: 'no bubble' }); return true; }
+        if (msg.action === 'state') {
+          result.state = {
+            visible: wrap.classList.contains('on'),
+            label: root.getElementById('lbl').textContent,
+            saveBarHidden: root.querySelector('.bar').classList.contains('off'),
+            markBarShown: root.getElementById('markBar').classList.contains('on'),
+            swatches: root.querySelectorAll('.sw b').length,
+            commentValue: root.getElementById('ta').value,
+          };
+        } else if (msg.action === 'click') {
+          const el = msg.color
+            ? root.querySelector(`.sw b[data-color="${msg.color}"]`)
+            : root.getElementById(msg.id);
+          if (!el) { sr({ ok: false, error: 'no such control: ' + (msg.color || msg.id) }); return true; }
+          el.click();
+        } else if (msg.action === 'type') {
+          const ta = root.getElementById('ta');
+          ta.value = msg.text;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } catch (err) {
+        sr({ ok: false, error: err.message });
+        return true;
+      }
+      sr(result);
+      return true;
+    }
   });
 
   // ---- Re-paint ----
@@ -410,13 +453,21 @@
       remaining = remaining.filter(h => !paintHighlight(h));
       if (!remaining.length) stopWatchingForContent();
     };
+    let lastAttempt = 0;
     lateObserver = new MutationObserver(() => {
       clearTimeout(lateDebounce);
-      lateDebounce = setTimeout(attempt, 150);
+      // A page that mutates continuously would otherwise reset the debounce
+      // forever and the window would expire without a single attempt, so
+      // force one at least every half second.
+      if (Date.now() - lastAttempt > 500) { lastAttempt = Date.now(); attempt(); return; }
+      lateDebounce = setTimeout(() => { lastAttempt = Date.now(); attempt(); }, 150);
     });
-    lateObserver.observe(document.body, { childList: true, subtree: true });
-    // Give up eventually rather than observing the document forever.
-    lateTimer = setTimeout(stopWatchingForContent, LATE_RENDER_WINDOW_MS);
+    // characterData too: many templates render by replacing the text of an
+    // existing node rather than adding one, which childList never reports.
+    lateObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    // Give up eventually rather than observing the document forever, but try
+    // once more on the way out so a late arrival is not lost to the deadline.
+    lateTimer = setTimeout(() => { attempt(); stopWatchingForContent(); }, LATE_RENDER_WINDOW_MS);
   }
 
   async function repaint() {
@@ -583,15 +634,12 @@
     stopWatchingForContent();
     repaint();
   }
-  for (const method of ['pushState', 'replaceState']) {
-    const original = history[method];
-    history[method] = function (...args) {
-      const out = original.apply(this, args);
-      setTimeout(onUrlMaybeChanged, 0);
-      return out;
-    };
-  }
+  // Patching history here only catches calls made from this isolated world,
+  // and a single-page app navigates from the page's own world, which this
+  // never sees. Poll instead: cheap, and it catches every route change
+  // however it was made.
   window.addEventListener('popstate', () => setTimeout(onUrlMaybeChanged, 0));
+  setInterval(onUrlMaybeChanged, 700);
 
   function scrollTo(hlId) {
     const m = document.querySelector(`mark.${MARK_CLASS}[data-highlight-id="${hlId}"]`);

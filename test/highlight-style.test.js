@@ -69,4 +69,9 @@ module.exports = ({ test, eq, ok, root }) => {
     eq(addEmphasis([{ start: 0, end: 5 }], 3, 9), [{ start: 0, end: 9 }]);
     eq(addEmphasis([], 2, 4), [{ start: 2, end: 4 }]);
   });
+
+  test('markdown escapes nothing inside an emphasised run', () => {
+    // Emphasis wraps the run verbatim; the quote is user content, not source.
+    eq(quoteToMarkdown({ text: 'a *b* c', emphasis: [{ start: 2, end: 5 }] }), 'a ***b*** c');
+  });
 };
