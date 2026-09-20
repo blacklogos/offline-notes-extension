@@ -81,12 +81,21 @@ substitutes the horn-plus-tone composites from another face. Georgia renders
 the set correctly and now leads the serif stack. The sans option uses the
 bundled Inter Display, identical on every machine.
 
+### Backup you can actually reach
+
+Export and restore now live in the sidebar footer. A backup carries every key
+the extension owns, including the theme and reader preferences that earlier
+"full" exports dropped. Restoring validates the file, then states what it holds
+and what it will replace before touching anything. It replaces rather than
+merges, and a file missing a key leaves that key alone.
+
 ### Tests
 
-`node test/run.js` covers quote location against a reshaped snapshot, article
-extraction and block offsets, and write serialization. No dependencies. It
-found a real bug on its first run: a top-level `<script>` had its source
-appended into saved article text.
+`node test/run.js` covers quote location, article extraction, write
+serialization and backup validation. `node test/browser/run.js` drives a real
+headless Chrome on a throwaway profile and covers capture, repaint, the in-page
+indicator, the reader, reader captures landing on the source page, concurrent
+writes, and a backup round trip. No dependencies for either.
 
 ## [1.1.0] - 2026-04-15
 
