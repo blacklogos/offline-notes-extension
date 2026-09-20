@@ -78,7 +78,10 @@
     // blocks do not account for nearly all of the text, ignore them.
     const covered = usable.reduce((n, b) => n + (b.end - b.start), 0);
     if (!usable.length || covered < text.length * 0.9) return flat();
-    return usable.map(b => ({ kind: b.kind || 'p', start: b.start, text: text.slice(b.start, b.end) }));
+    return usable
+      .map(b => ({ kind: b.kind || 'p', start: b.start, text: text.slice(b.start, b.end) }))
+      // Captures made before [edit] links were filtered still carry them.
+      .filter(seg => !/^\[\s*edit\s*\]$/i.test(seg.text.trim()));
   }
 
   function renderArticle(container, text, ranges, blocks) {
