@@ -14,6 +14,14 @@ module.exports = async ({ test, eq, ok, root }) => {
     return {
       store: () => store,
       api: {
+        // Restore now goes through the worker, which holds both write queues.
+        runtime: {
+          sendMessage: async (msg) => {
+            if (msg.type !== 'RESTORE_BACKUP') return { ok: false, error: 'unexpected' };
+            Object.assign(store, msg.payload);
+            return { ok: true, result: Object.keys(msg.payload) };
+          },
+        },
         storage: {
           local: {
             get: async (keys) => {
@@ -105,6 +113,38 @@ module.exports = async ({ test, eq, ok, root }) => {
     const b = new BackupManager();
     await b.restore({ offline_notes: [{ id: 'x' }] });     // no theme in this file
     eq(c.store().offline_notes_theme, 'reader', 'untouched key');
+  });
+
+
+  test('a legacy backup omitting a collection does not erase it', async () => {
+    const c = makeChrome({ offline_notes: [{ id: 'keep' }], offline_page_notes: { p: { id: 'p', highlights: [] } } });
+    global.chrome = c.api;
+    const b = new BackupManager();
+    // A notes-only legacy file must leave page notes alone.
+    const check = b.inspect({ notes: [{ id: 'restored' }] });
+    eq(check.valid, true, 'legacy file accepted');
+    await b.restore(check.data);
+    eq(Object.keys(c.store().offline_page_notes).length, 1, 'page notes untouched');
+    eq(c.store().offline_notes.map(n => n.id), ['restored'], 'notes replaced');
+  });
+
+  test('invalid records are rejected before anything is written', async () => {
+    const c = makeChrome({ offline_notes: [{ id: 'original' }] });
+    global.chrome = c.api;
+    const b = new BackupManager();
+    const bad = b.inspect({ format: 'offline-notes-backup', data: { offline_notes: [null] } });
+    eq(bad.valid, false, 'a null record is refused');
+    ok(bad.errors.length > 0, 'and explained');
+    eq(c.store().offline_notes.map(n => n.id), ['original'], 'nothing was written');
+  });
+
+  test('a page note with malformed highlights is rejected', () => {
+    global.chrome = makeChrome({}).api;
+    const b = new BackupManager();
+    eq(b.inspect({ format: 'offline-notes-backup',
+      data: { offline_page_notes: { p: { id: 'p', highlights: 'nope' } } } }).valid, false);
+    eq(b.inspect({ format: 'offline-notes-backup',
+      data: { offline_page_notes: { p: { id: 'p', highlights: [null] } } } }).valid, false);
   });
 
   delete global.chrome;

@@ -145,10 +145,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     RECOLOR_HIGHLIGHT: (m) => pageStorage.recolorHighlight(m.url, m.highlightId, m.color),
     SET_SUMMARY: (m) => pageStorage.setSummary(m.pageNoteId, m.summary),
     IMPORT_FILE: (m) => pageStorage.setSavedContent(m.url, m.pageTitle, m.savedContent),
+    UPDATE_PAGE_TITLE: (m) => pageStorage.updatePageTitle(m.pageNoteId, m.title),
+    // Restore replaces whole collections, so it must hold BOTH queues and run
+    // in the single writing context, or an in-flight append can overwrite it.
+    RESTORE_BACKUP: (m) => noteWriteQueue.run(() => pageWriteQueue.run(async () => {
+      await chrome.storage.local.set(m.payload);
+      return Object.keys(m.payload);
+    })),
     SAVE_NOTE: (m) => noteStorage.saveNote(m.note),
     UPDATE_NOTE: (m) => noteStorage.updateNote(m.id, m.updates),
     DELETE_NOTE: (m) => noteStorage.deleteNote(m.id),
-    IMPORT_DATA: (m) => noteStorage.importData(m.data),
+    // importData touches page notes too, so it holds both queues.
+    IMPORT_DATA: (m) => pageWriteQueue.run(() => noteStorage.importData(m.data)),
   };
 
   if (MUTATIONS[msg.type]) {

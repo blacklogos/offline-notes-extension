@@ -18,9 +18,25 @@ module.exports = ({ test, eq, ok, root }) => {
 
   test('the same file name always maps to the same page note', () => {
     eq(fi.importUrlFor('My Notes.md'), fi.importUrlFor('My Notes.md'));
-    eq(fi.importUrlFor('My Notes.md'), 'offline-notes://import/my-notes');
+    ok(fi.importUrlFor('My Notes.md').startsWith('offline-notes://import/my-notes-'),
+      'readable slug plus a digest of the full name');
     ok(fi.isImportedUrl(fi.importUrlFor('x.md')), 'recognised as imported');
     ok(!fi.isImportedUrl('https://example.com'), 'a web page is not');
+  });
+
+  test('different file names never collide onto one page note', () => {
+    // "A B.md" and "A-B.md" both slug to "a-b"; the second import would have
+    // replaced the first document while keeping its highlights.
+    ok(fi.importUrlFor('A B.md') !== fi.importUrlFor('A-B.md'), 'space vs hyphen');
+    ok(fi.importUrlFor('notes.md') !== fi.importUrlFor('Notes.md'), 'case differs');
+    ok(fi.importUrlFor('a/b.md') !== fi.importUrlFor('a-b.md'), 'separator differs');
+  });
+
+  test('inline code and intraword underscores keep their literal characters', () => {
+    eq(fi.stripInline('call `__init__` first'), 'call __init__ first');
+    eq(fi.stripInline('foo_bar_baz'), 'foo_bar_baz');
+    eq(fi.stripInline('`a * b` and *real* emphasis'), 'a * b and real emphasis');
+    eq(fi.stripInline('__strong__ at a boundary'), 'strong at a boundary');
   });
 
   test('inline markdown is reduced to the words', () => {
