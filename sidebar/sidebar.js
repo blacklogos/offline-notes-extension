@@ -269,11 +269,11 @@ saveNote.addEventListener('click', async () => {
     .filter(tag => tag.length > 0);
 
   try {
-    await storage.updateNote(currentNote.id, {
+    await chrome.runtime.sendMessage({ type: 'UPDATE_NOTE', id: currentNote.id, updates: {
       title: modalTitle.value.trim() || 'Untitled',
       content: modalContent.value.trim(),
       tags
-    });
+    } });
 
     closeNoteModal(true);
     await loadNotes();
@@ -288,7 +288,7 @@ deleteNote.addEventListener('click', async () => {
 
   if (confirm('Are you sure you want to delete this note?')) {
     try {
-      await storage.deleteNote(currentNote.id);
+      await chrome.runtime.sendMessage({ type: 'DELETE_NOTE', id: currentNote.id });
       closeNoteModal(true);
       await loadNotes();
     } catch (error) {
@@ -569,7 +569,7 @@ document.getElementById('openReader').addEventListener('click', () => {
 clearSavedContentBtn.addEventListener('click', async () => {
   if (!currentPageNote) return;
   if (!confirm('Remove the saved article text? Highlights on this page are kept.')) return;
-  await pageStorage.clearSavedContent(currentPageNote.id);
+  await chrome.runtime.sendMessage({ type: 'CLEAR_SAVED_CONTENT', pageNoteId: currentPageNote.id });
   await loadPageNotes();
   const fresh = await pageStorage.getById(currentPageNote.id);
   if (fresh) { currentPageNote = fresh; renderReaderPanel(fresh); }
@@ -739,7 +739,7 @@ async function jumpToHighlight(h, note) {
 
 async function deleteHighlight(h, note) {
   if (!confirm('Delete this highlight?')) return;
-  await pageStorage.deleteHighlight(note.id, h.id);
+  await chrome.runtime.sendMessage({ type: 'DELETE_HIGHLIGHT', pageNoteId: note.id, highlightId: h.id });
   const refreshed = await pageStorage.getById(note.id);
   if (!refreshed || refreshed.highlights.length === 0) {
     closePageModal();
@@ -754,7 +754,7 @@ async function deleteHighlight(h, note) {
 async function deleteCurrentPageNote() {
   if (!currentPageNote) return;
   if (!confirm(`Delete the page note for "${currentPageNote.pageTitle}"? All ${currentPageNote.highlights.length} highlight(s) will be removed.`)) return;
-  await pageStorage.deletePageNote(currentPageNote.id);
+  await chrome.runtime.sendMessage({ type: 'DELETE_PAGE_NOTE', pageNoteId: currentPageNote.id });
   closePageModal();
   loadPageNotes();
 }

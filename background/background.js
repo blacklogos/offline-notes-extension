@@ -13,11 +13,20 @@
  */
 
 importScripts(
+  '/lib/write-queue.js',
   '/lib/url-canonical.js',
   '/lib/page-storage.js',
+  '/lib/storage.js',
 );
 
+/*
+ * The service worker is the single writing context for both collections.
+ * Other surfaces read directly but ask here to mutate, so the write queues
+ * below actually serialize everything: an in-memory queue cannot coordinate
+ * across the sidebar, the popup and the reader, which are separate contexts.
+ */
 const pageStorage = new PageNoteStorage();
+const noteStorage = new StorageManager();
 
 // ---- Install ----
 
@@ -124,6 +133,32 @@ async function flashBadge(tabId, text) {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.type) return;
+
+
+  // ---- Mutations funnelled here so one context owns every write ----
+
+  const MUTATIONS = {
+    DELETE_HIGHLIGHT: (m) => pageStorage.deleteHighlight(m.pageNoteId, m.highlightId),
+    DELETE_PAGE_NOTE: (m) => pageStorage.deletePageNote(m.pageNoteId),
+    CLEAR_SAVED_CONTENT: (m) => pageStorage.clearSavedContent(m.pageNoteId),
+    SAVE_NOTE: (m) => noteStorage.saveNote(m.note),
+    UPDATE_NOTE: (m) => noteStorage.updateNote(m.id, m.updates),
+    DELETE_NOTE: (m) => noteStorage.deleteNote(m.id),
+    IMPORT_DATA: (m) => noteStorage.importData(m.data),
+  };
+
+  if (MUTATIONS[msg.type]) {
+    (async () => {
+      try {
+        const result = await MUTATIONS[msg.type](msg);
+        sendResponse({ ok: true, result });
+      } catch (err) {
+        console.error(msg.type + ' failed:', err);
+        sendResponse({ ok: false, error: err.message });
+      }
+    })();
+    return true;
+  }
 
   if (msg.type === 'SAVE_HIGHLIGHT') {
     (async () => {

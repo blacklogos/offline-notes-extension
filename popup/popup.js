@@ -66,11 +66,12 @@ noteForm.addEventListener('submit', async (e) => {
 
   try {
     // Save note
-    await storage.saveNote({
-      title: title || deriveTitle(content),
-      content,
-      tags
+    // Writes go through the service worker, the one context that owns them.
+    const saved = await chrome.runtime.sendMessage({
+      type: 'SAVE_NOTE',
+      note: { title: title || deriveTitle(content), content, tags },
     });
+    if (!saved || !saved.ok) throw new Error((saved && saved.error) || 'Save failed');
 
     // Show success message
     successMessage.classList.remove('hidden');
