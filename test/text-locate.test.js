@@ -142,4 +142,19 @@ module.exports = ({ test, eq, ok, root }) => {
     const hay = 'plain quote '.repeat(60);
     eq(locate(hay, 'quote', {}), null);
   });
+
+  test('emphasis translates across a block join', () => {
+    const { translateRange } = require(root + '/lib/text-locate.js');
+    // A selection dragged across paragraphs joins them with no separator,
+    // while the article keeps the blank line. A repeated word inside such a
+    // quote used to lose its emphasis entirely.
+    const quote = 'redblue red';
+    const span = 'red\n\nblue red';
+    const second = translateRange(quote, span, 8, 11);
+    ok(second, 'the second occurrence translates');
+    eq(span.slice(second.start, second.end), 'red');
+    ok(second.start > 5, 'and it is the second one, not the first');
+    const first = translateRange(quote, span, 0, 3);
+    eq(first.start, 0, 'the first stays first');
+  });
 };

@@ -572,6 +572,35 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       eq(v.textFound, false, 'and cannot reach the comment box');
     });
 
+    await test('importing HTML makes no network request', async () => {
+      // DOMParser builds an inert document, but the promise is that nothing
+      // ever reaches the network, so it is asserted rather than assumed.
+      const r = await browser.eval('sidebar/sidebar.html', `
+        const html = '<html><head><title>T</title></head><body>'
+          + '<img src="https://example.invalid/tracker.gif">'
+          + '<iframe src="https://example.invalid/frame.html"></iframe>'
+          + '<script src="https://example.invalid/evil.js"><' + '/script>'
+          + '<link rel="stylesheet" href="https://example.invalid/style.css">'
+          + '<p>' + 'Long enough body text to pass the minimum length check. '.repeat(5) + '</p>'
+          + '</body></html>';
+        const before = performance.getEntriesByType('resource').length;
+        const sc = FileImport.buildSavedContent('probe.html', html);
+        await new Promise(r => setTimeout(r, 1200));
+        const after = performance.getEntriesByType('resource')
+          .filter(e => e.name.includes('example.invalid'));
+        return JSON.stringify({
+          imported: !!sc,
+          chars: sc ? sc.chars : 0,
+          remoteRequests: after.length,
+          keepsNoMarkup: sc ? !/<|src=/.test(sc.text) : null,
+        });
+      `);
+      const v = JSON.parse(r);
+      ok(v.imported, 'the document imported');
+      eq(v.remoteRequests, 0, 'no remote resource was requested');
+      ok(v.keepsNoMarkup, 'and the stored text carries no markup');
+    });
+
     await test('backup round-trips every key', async () => {
       const r = await browser.eval('sidebar/sidebar.html', `
         const b = new BackupManager();
