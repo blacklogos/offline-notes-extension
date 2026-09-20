@@ -125,6 +125,13 @@
       meta.appendChild(a);
     }
     el.docHead.append(h1, meta);
+    // The summary belongs above the article it condenses.
+    if (note.summary) {
+      const sum = document.createElement('div');
+      sum.className = 'doc-summary';
+      sum.textContent = note.summary;
+      el.docHead.appendChild(sum);
+    }
   }
 
   function setNotice(text, actionLabel, onAction) {

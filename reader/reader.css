@@ -253,3 +253,16 @@ mark.rd-mark.has-note { border-bottom: 2px solid var(--sage-500); }
 .sel-colors b.on { box-shadow: 0 0 0 2px var(--sage-500); }
 #selNew, #selExisting { display: inline-flex; align-items: center; }
 #selNew[hidden], #selExisting[hidden] { display: none; }
+
+/* The page in the reader's own words, above the article it condenses. */
+.doc-summary {
+  font-family: var(--rd-face);
+  font-size: 0.92em;
+  line-height: 1.6;
+  color: var(--ink-700);
+  background: var(--paper-100);
+  border-left: 3px solid var(--sage-500);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-5);
+}

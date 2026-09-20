@@ -425,6 +425,78 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       eq(v.lost, 0, 'and it locates cleanly');
     });
 
+    await test('every shared module reaches the page that loads it', async () => {
+      // A duplicate top-level const in two classic scripts makes the second
+      // fail to parse, silently: no error surfaces, the global is just gone.
+      const r = await browser.eval('sidebar/sidebar.html', `
+        const expected = ['HighlightStyle', 'HighlightOrder', 'FileImport', 'TextBlocks'];
+        const missing = expected.filter(n => typeof window[n] === 'undefined');
+        const classes = ['PageNoteExporter', 'CornellExporter', 'BackupManager', 'VaultWriter', 'PageNoteStorage'];
+        const brokenClasses = classes.filter(n => {
+          try { return typeof eval(n) !== 'function'; } catch (e) { return true; }
+        });
+        return JSON.stringify({ missing, brokenClasses });
+      `);
+      const v = JSON.parse(r);
+      eq(v.missing, [], 'window globals present');
+      eq(v.brokenClasses, [], 'classes defined');
+    });
+
+    await test('summary, order and both exports work together', async () => {
+      const r = await browser.eval('sidebar/sidebar.html', `
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const note = Object.values(s.offline_page_notes).find(n => n.highlights.length >= 2);
+        // The summary is the fourth layer: the page in the user's own words.
+        await chrome.runtime.sendMessage({ type: 'SET_SUMMARY', pageNoteId: note.id, summary: 'What this page is really about.' });
+        await new Promise(r => setTimeout(r, 500));
+        const fresh = await pageStorage.getById(note.id);
+
+        const newest = window.HighlightOrder.sortHighlights(fresh.highlights, 'newest').map(h => h.id);
+        const oldest = window.HighlightOrder.sortHighlights(fresh.highlights, 'oldest').map(h => h.id);
+
+        const plain = new PageNoteExporter().exportPageNote(fresh, null);
+        const cornell = new CornellExporter().export(fresh, null);
+        return JSON.stringify({
+          pageId: fresh.id,
+          storedSummary: fresh.summary,
+          orderReversed: newest.join() === oldest.slice().reverse().join(),
+          plainHasSummary: plain.includes('## Summary'),
+          plainHasBold: plain.indexOf('**') !== -1,
+          cornellHasTable: cornell.includes('| Cue | Notes |'),
+          cornellHasSummary: cornell.includes('What this page is really about.'),
+          cornellRows: cornell.split(String.fromCharCode(10)).filter(l => l.startsWith('| ') && !l.startsWith('| Cue') && !l.startsWith('| ---')).length,
+          highlights: fresh.highlights.length,
+        });
+      `);
+      const v = JSON.parse(r);
+      eq(v.storedSummary, 'What this page is really about.', 'summary persisted');
+      ok(v.orderReversed, 'newest and oldest are exact reverses');
+      ok(v.plainHasSummary, 'markdown export carries the summary');
+      ok(v.plainHasBold, 'markdown export carries emphasis as bold');
+      ok(v.cornellHasTable, 'Cornell emits a cue/notes table');
+      ok(v.cornellHasSummary, 'Cornell carries the summary');
+      eq(v.cornellRows, v.highlights, 'one Cornell row per highlight');
+      global.__summaryPageId = v.pageId;
+    });
+
+    await test('the reader shows the summary above the article', async () => {
+      await browser.openTab(`chrome-extension://${id}/reader/reader.html?page=${global.__summaryPageId}`);
+      await sleep(3000);
+      const v = JSON.parse(await browser.eval(`page=${global.__summaryPageId}`, `
+        await new Promise(r => setTimeout(r, 800));
+        const sum = document.querySelector('.doc-summary');
+        const body = document.getElementById('articleBody');
+        return JSON.stringify({
+          present: !!sum,
+          text: sum ? sum.textContent : null,
+          aboveArticle: sum ? (sum.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 : false,
+        });
+      `));
+      ok(v.present, 'summary rendered in the reader');
+      eq(v.text, 'What this page is really about.', 'summary text');
+      ok(v.aboveArticle, 'and it sits above the article');
+    });
+
     await test('backup round-trips every key', async () => {
       const r = await browser.eval('sidebar/sidebar.html', `
         const b = new BackupManager();

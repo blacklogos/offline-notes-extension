@@ -166,11 +166,27 @@
         </div>
       </div>
 
+      <div class="page-summary">
+        <label for="pageSummary" class="page-summary-label">Summary, in your own words</label>
+        <textarea id="pageSummary" class="page-summary-input" rows="2"
+          placeholder="What is worth remembering from this page?"></textarea>
+      </div>
+
       <div class="highlight-toolbar">
         <label><input type="checkbox" class="hl-checkbox" id="selectAllHighlights"> Select all</label>
+        <label class="order-control">
+          <span class="visually-hidden">Order</span>
+          <select id="highlightOrder" class="order-select">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
         <span class="spacer"></span>
         <button id="exportPageMd" class="btn btn-secondary btn-sm" title="Export selected highlights as Markdown">
           <span data-icon="copy"></span>Export MD
+        </button>
+        <button id="exportCornell" class="btn btn-secondary btn-sm" title="Export as a Cornell cue/notes/summary sheet">
+          <span data-icon="copy"></span>Cornell
         </button>
         <button id="copyPageMd" class="btn btn-secondary btn-sm" title="Copy selected highlights as Markdown">
           <span data-icon="copy"></span>Copy all
@@ -197,8 +213,10 @@
   <script src="../lib/icons.js"></script>
   <script src="../lib/write-queue.js"></script>
   <script src="../lib/backup.js"></script>
+  <script src="../lib/highlight-style.js"></script>
   <script src="../lib/text-blocks.js"></script>
   <script src="../lib/file-import.js"></script>
+  <script src="../lib/highlight-order.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/url-canonical.js"></script>
   <script src="../lib/page-storage.js"></script>
@@ -206,6 +224,7 @@
   <script src="../lib/templates.js"></script>
   <script src="../lib/image-generator.js"></script>
   <script src="../lib/page-note-export.js"></script>
+  <script src="../lib/cornell-export.js"></script>
   <script src="../lib/vault.js"></script>
   <script src="sidebar.js"></script>
 </body>
