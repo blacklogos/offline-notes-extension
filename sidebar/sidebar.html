@@ -52,12 +52,16 @@
 
     <!-- Pages tab panel -->
     <section class="tab-panel" data-panel="pages" role="tabpanel" hidden>
+      <div class="pages-actions">
+        <button id="importFileBtn" class="btn-link">Import a Markdown or HTML file…</button>
+        <input id="importFile" type="file" accept=".md,.markdown,.mdown,.txt,.html,.htm,text/markdown,text/html" hidden>
+      </div>
       <div id="pagesList" class="pages-list"></div>
 
       <div id="pagesEmptyState" class="empty-state hidden">
         <img class="empty-illo" src="../images/empty-states/pages-empty.svg" alt="" width="120" height="120">
         <h3>No saved highlights yet</h3>
-        <p>Select text on any page, then click the <strong>Save</strong> bubble or press <kbd>Alt+H</kbd>.</p>
+        <p>Select text on any page, then click the <strong>Save</strong> bubble or press <kbd>Alt+H</kbd>. You can also import a Markdown or HTML file to read and highlight offline.</p>
       </div>
     </section>
     <details id="dataBar" class="vault-bar">
@@ -193,6 +197,8 @@
   <script src="../lib/icons.js"></script>
   <script src="../lib/write-queue.js"></script>
   <script src="../lib/backup.js"></script>
+  <script src="../lib/text-blocks.js"></script>
+  <script src="../lib/file-import.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/url-canonical.js"></script>
   <script src="../lib/page-storage.js"></script>

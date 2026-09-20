@@ -100,7 +100,7 @@ async function savePageContent(tab) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['lib/readability.js', 'lib/page-content.js'],
+      files: ['lib/readability.js', 'lib/text-blocks.js', 'lib/page-content.js'],
     });
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -144,6 +144,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     EMPHASISE_HIGHLIGHT: (m) => pageStorage.emphasiseHighlight(m.url, m.highlightId, m.start, m.end),
     RECOLOR_HIGHLIGHT: (m) => pageStorage.recolorHighlight(m.url, m.highlightId, m.color),
     SET_SUMMARY: (m) => pageStorage.setSummary(m.pageNoteId, m.summary),
+    IMPORT_FILE: (m) => pageStorage.setSavedContent(m.url, m.pageTitle, m.savedContent),
     SAVE_NOTE: (m) => noteStorage.saveNote(m.note),
     UPDATE_NOTE: (m) => noteStorage.updateNote(m.id, m.updates),
     DELETE_NOTE: (m) => noteStorage.deleteNote(m.id),

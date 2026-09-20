@@ -733,3 +733,9 @@ summary:focus-visible, .tag-chip:focus-visible, .btn-link:focus-visible {
 
 /* A page saved for reading, with or without highlights, should say so. */
 .saved-badge { color: var(--sage-700); }
+
+/* Import lives with the pages it creates, quiet until needed. */
+.pages-actions {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--paper-200);
+}

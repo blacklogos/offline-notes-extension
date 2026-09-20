@@ -112,11 +112,18 @@
     if (sc.siteName) bits.push(sc.siteName);
     if (sc.savedAt) bits.push('saved ' + new Date(sc.savedAt).toLocaleDateString());
     meta.appendChild(document.createTextNode(bits.join(' · ')));
-    meta.appendChild(document.createTextNode('  '));
-    const a = document.createElement('a');
-    a.href = note.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-    a.textContent = 'Open original';
-    meta.appendChild(a);
+    // An imported file has no web original, so offering the link would be a
+    // dead end; show where it came from instead.
+    if (window.FileImport && window.FileImport.isImportedUrl(note.url)) {
+      const sc = note.savedContent || {};
+      if (sc.sourceFile) meta.appendChild(document.createTextNode('  ' + sc.sourceFile));
+    } else {
+      meta.appendChild(document.createTextNode('  '));
+      const a = document.createElement('a');
+      a.href = note.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.textContent = 'Open original';
+      meta.appendChild(a);
+    }
     el.docHead.append(h1, meta);
   }
 

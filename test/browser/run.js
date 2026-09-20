@@ -353,6 +353,78 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       eq(Number(r), 12, 'every concurrent write landed');
     });
 
+    await test('a Markdown file imports and reads like a saved page', async () => {
+      // Build the record in node with the real parser, then hand it to the
+      // extension, which avoids nesting a markdown document inside a template.
+      const fileImport = require('../../lib/file-import.js');
+      const md = [
+        '# Imported Reading Notes', '',
+        'A first paragraph with **bold** text and a [link](https://example.com) in it.', '',
+        '## A section heading', '',
+        '- first point', '- second point', '',
+        '> a quoted line worth keeping',
+      ].join('\n');
+      const sc = fileImport.buildSavedContent('Reading Notes.md', md);
+      ok(sc, 'the parser produced a record');
+      ok(!/\*\*/.test(sc.text), 'markdown syntax stripped from the readable text');
+      const kinds = sc.blocks.map(b => b.kind);
+      ok(kinds.includes('h2') && kinds.includes('li') && kinds.includes('quote'),
+        `structure preserved: ${JSON.stringify(kinds)}`);
+
+      const url = fileImport.importUrlFor('Reading Notes.md');
+      const r = await browser.eval('sidebar/sidebar.html', `
+        const payload = ${JSON.stringify({ url, sc })};
+        const res = await chrome.runtime.sendMessage({ type: 'IMPORT_FILE',
+          url: payload.url, pageTitle: payload.sc.title, savedContent: payload.sc });
+        await new Promise(r => setTimeout(r, 700));
+        const s = await chrome.storage.local.get('offline_page_notes');
+        const note = Object.values(s.offline_page_notes).find(n => n.url === payload.url);
+        return JSON.stringify({ ok: res && res.ok, id: note && note.id,
+          title: note && note.pageTitle, highlights: note && note.highlights.length });
+      `);
+      const v = JSON.parse(r);
+      ok(v.ok, 'import reported success');
+      eq(v.title, 'Imported Reading Notes', 'title taken from the h1');
+      eq(v.highlights, 0, 'a fresh import starts with no highlights');
+      global.__importId = v.id;
+    });
+
+    await test('an imported file opens in the reader and can be highlighted', async () => {
+      const url = `chrome-extension://${id}/reader/reader.html?page=${global.__importId}`;
+      await browser.openTab(url);
+      await sleep(3000);
+      const r = await browser.eval(`page=${global.__importId}`, `
+        await new Promise(r => setTimeout(r, 900));
+        const body = document.getElementById('articleBody');
+        const out = {
+          headings: body.querySelectorAll('h2,h3').length,
+          listItems: body.querySelectorAll('li').length,
+          quotes: body.querySelectorAll('blockquote').length,
+          hasOpenOriginal: !!document.querySelector('.doc-meta a'),
+          meta: (document.querySelector('.doc-meta') || {}).textContent || '',
+        };
+        const p = [...body.querySelectorAll('p')].find(el => el.textContent.length > 40);
+        const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.data.length > 30);
+        const range = document.createRange(); range.setStart(tn, 2); range.setEnd(tn, 25);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise(r => setTimeout(r, 400));
+        document.getElementById('selHighlight').click();
+        await new Promise(r => setTimeout(r, 1800));
+        out.marks = body.querySelectorAll('mark.rd-mark').length;
+        out.lost = document.querySelectorAll('.rail-item.is-lost').length;
+        return JSON.stringify(out);
+      `);
+      const v = JSON.parse(r);
+      ok(v.headings > 0, 'headings render as headings');
+      ok(v.listItems >= 2, 'list items render as a list');
+      ok(v.quotes >= 1, 'block quote renders');
+      eq(v.hasOpenOriginal, false, 'no dead "Open original" link for an imported file');
+      ok(/Reading Notes\.md/.test(v.meta), `meta names the source file: ${v.meta}`);
+      eq(v.marks, 1, 'the highlight is painted in the imported document');
+      eq(v.lost, 0, 'and it locates cleanly');
+    });
+
     await test('backup round-trips every key', async () => {
       const r = await browser.eval('sidebar/sidebar.html', `
         const b = new BackupManager();

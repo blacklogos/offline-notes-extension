@@ -1024,3 +1024,44 @@ backupFileInput.addEventListener('change', async () => {
     setBackupStatus('Could not read that file: ' + err.message);
   }
 });
+
+// ---- Import a local file ----
+//
+// A Markdown or HTML file becomes an ordinary page note, so the reader,
+// highlighting, export and the folder mirror all work on it unchanged. This
+// avoids file:// entirely: content scripts do not run there without a manual
+// per-extension permission, and a .md file in Chrome is one undifferentiated
+// block of preformatted text with no structure to read.
+
+const importFileInput = document.getElementById('importFile');
+
+document.getElementById('importFileBtn').addEventListener('click', () => importFileInput.click());
+
+importFileInput.addEventListener('change', async () => {
+  const file = importFileInput.files && importFileInput.files[0];
+  importFileInput.value = ''; // allow re-importing the same file
+  if (!file) return;
+  const status = document.getElementById('pagesEmptyState');
+  try {
+    if (!FileImport.kindOf(file.name)) {
+      alert('Only Markdown and HTML files can be imported.\n\nPDFs are not supported: Chrome renders them without accessible text, so a highlight could not be anchored back to the page.');
+      return;
+    }
+    const savedContent = FileImport.buildSavedContent(file.name, await file.text());
+    if (!savedContent) { alert('That file has no readable text to import.'); return; }
+
+    const url = FileImport.importUrlFor(file.name);
+    const res = await chrome.runtime.sendMessage({
+      type: 'IMPORT_FILE', url, pageTitle: savedContent.title, savedContent,
+    });
+    if (!res || !res.ok) throw new Error((res && res.error) || 'Import failed');
+
+    await loadPageNotes();
+    // Re-importing an edited file updates the same note, keeping its highlights.
+    const note = allPageNotes.find((n) => n.url === url);
+    if (note) openPageModal(note);
+    void status;
+  } catch (err) {
+    alert('Could not import that file: ' + err.message);
+  }
+});
