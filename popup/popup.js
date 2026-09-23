@@ -200,6 +200,7 @@ async function loadPageContext() {
     pageReadBtn.classList.toggle('hidden', !saved);
     pageSaveReadBtn.textContent = saved ? 'Update article' : 'Save & read';
     pageContext.classList.remove('hidden');
+    await renderSiteToggle(tab.url);
   } catch (err) {
     console.error('Page context failed:', err);
   }
@@ -231,3 +232,34 @@ pageSaveReadBtn.addEventListener('click', async () => {
 });
 
 loadPageContext();
+
+// ---- Turning the extension off for a site ----
+//
+// Some pages are not for annotating. Turning it off stops the bubble, the
+// repaint and the indicator on that site; everything already saved stays.
+
+const siteToggleBtn = document.getElementById('siteToggle');
+let siteToggleUrl = null;
+
+async function renderSiteToggle(url) {
+  siteToggleUrl = url;
+  const host = SiteRules.hostOf(url);
+  if (!host) { siteToggleBtn.hidden = true; return; }
+  const res = await chrome.runtime.sendMessage({ type: 'IS_SITE_DISABLED', url });
+  const off = !!(res && res.disabled);
+  siteToggleBtn.hidden = false;
+  siteToggleBtn.textContent = off ? `Turn back on for ${host}` : `Turn off for ${host}`;
+  siteToggleBtn.dataset.off = String(off);
+}
+
+siteToggleBtn.addEventListener('click', async () => {
+  if (!siteToggleUrl) return;
+  const off = siteToggleBtn.dataset.off === 'true';
+  await chrome.runtime.sendMessage({ type: off ? 'ENABLE_SITE' : 'DISABLE_SITE', url: siteToggleUrl });
+  await renderSiteToggle(siteToggleUrl);
+  // Existing tabs keep their old state until reloaded; say so rather than
+  // letting the user wonder why the bubble is still there.
+  pageContextMeta.textContent = off
+    ? 'Back on. Reload the page to start again.'
+    : 'Turned off here. Reload the page to stop.';
+});

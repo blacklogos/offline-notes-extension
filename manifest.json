@@ -44,6 +44,7 @@
       ],
       "js": [
         "lib/icons.js",
+        "lib/site-rules.js",
         "lib/url-canonical.js",
         "lib/text-blocks.js",
         "lib/highlight-style.js",

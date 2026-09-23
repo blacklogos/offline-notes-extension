@@ -13,6 +13,7 @@
  */
 
 importScripts(
+  '/lib/site-rules.js',
   '/lib/write-queue.js',
   '/lib/url-canonical.js',
   '/lib/page-storage.js',
@@ -95,17 +96,35 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ---- Save readable page text ----
 
+// Single-page apps render the article after load, so one immediate attempt
+// reads an empty shell and reports "no readable article" on a page that plainly
+// has one. Substack's reader is the case that surfaced this. Retry a few times
+// before giving up, and keep the best result rather than the last.
+const EXTRACT_ATTEMPT_DELAYS_MS = [0, 700, 1500, 2500];
+
 async function savePageContent(tab) {
   if (!tab?.id || !/^https?:/.test(tab.url || '')) return { ok: false, error: 'Unsupported page' };
+  if (await isDisabledForUrl(tab.url)) return { ok: false, error: 'Offline Notes is turned off for this site' };
   try {
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ['lib/readability.js', 'lib/text-blocks.js', 'lib/page-content.js'],
     });
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => window.__offlineNotesExtractArticle(),
-    });
+
+    let result = null;
+    for (const delay of EXTRACT_ATTEMPT_DELAYS_MS) {
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+      const [{ result: attempt }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => window.__offlineNotesExtractArticle(),
+      });
+      // Keep the longest text seen: a partially rendered article can extract
+      // successfully but short, and the next attempt usually has all of it.
+      if (attempt && (!result || attempt.chars > result.chars)) result = attempt;
+      // Long enough to be a real article; stop early rather than stall the user.
+      if (result && result.chars > 2000) break;
+    }
+
     if (!result) {
       await flashBadge(tab.id, '!');
       return { ok: false, error: 'No readable article found on this page' };
@@ -145,6 +164,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     RECOLOR_HIGHLIGHT: (m) => pageStorage.recolorHighlight(m.url, m.highlightId, m.color),
     SET_SUMMARY: (m) => pageStorage.setSummary(m.pageNoteId, m.summary),
     IMPORT_FILE: (m) => pageStorage.setSavedContent(m.url, m.pageTitle, m.savedContent),
+    DISABLE_SITE: (m) => disableSite(m.url),
+    ENABLE_SITE: (m) => enableSite(m.url),
     UPDATE_PAGE_TITLE: (m) => pageStorage.updatePageTitle(m.pageNoteId, m.title),
     // Restore replaces whole collections, so it must hold BOTH queues and run
     // in the single writing context, or an in-flight append can overwrite it.
@@ -252,6 +273,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } catch (err) {
         sendResponse({ ok: false, error: err.message });
       }
+    })();
+    return true;
+  }
+
+  if (msg.type === 'IS_SITE_DISABLED') {
+    (async () => {
+      try { sendResponse({ ok: true, disabled: await isDisabledForUrl(msg.url) }); }
+      catch (err) { sendResponse({ ok: false, error: err.message }); }
     })();
     return true;
   }

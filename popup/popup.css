@@ -157,3 +157,18 @@ textarea::-webkit-scrollbar-thumb:hover { background: var(--warm-grey-300); }
 .page-context-actions { display: flex; gap: var(--space-2); }
 .page-context-actions .btn { flex: 1; }
 .btn-sm { padding: 6px 10px; font-size: var(--text-12); }
+
+/* Turning the extension off for a site: quiet, and next to the page it acts on. */
+.site-toggle {
+  display: block;
+  margin-top: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--warm-grey-500);
+  font: inherit;
+  font-size: var(--text-12);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.site-toggle:hover { color: var(--ink-900); }

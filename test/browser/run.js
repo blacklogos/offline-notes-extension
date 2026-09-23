@@ -601,6 +601,99 @@ function ok(v, what) { if (!v) throw new Error(`${what || 'value'}: expected tru
       ok(v.keepsNoMarkup, 'and the stored text carries no markup');
     });
 
+    await test('the bubble can be dismissed and stays away for that selection', async () => {
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4000));
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
+          const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
+          const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 40);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const before = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'closeBtn' });
+        await new Promise(r => setTimeout(r, 400));
+        const after = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        // Re-asserting the same selection must not bring it back.
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const sel = window.getSelection();
+          const range = sel.getRangeAt(0).cloneRange();
+          sel.removeAllRanges(); sel.addRange(range);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        const again = await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'state' });
+        return JSON.stringify({ before: before.state.visible, after: after.state.visible, again: again.state.visible });
+      `);
+      const v = JSON.parse(r);
+      eq(v.before, true, 'bubble shown for a selection');
+      eq(v.after, false, 'dismissed by the close button');
+      eq(v.again, false, 'and stays away for that same selection');
+    });
+
+    await test('turning a site off stops the extension acting there', async () => {
+      const r = await browser.eval(sw, `
+        const [tab] = await chrome.tabs.query({ url: '${ARTICLE}' });
+        // Capture a fresh highlight so this does not depend on what earlier
+        // tests left behind.
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4000));
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: async () => {
+          const p = [...document.querySelectorAll('p')].find(x => x.offsetHeight > 0 && x.innerText.trim().length > 200);
+          const tn = [...p.childNodes].find(n => n.nodeType === 3 && n.textContent.length > 70);
+          const range = document.createRange(); range.setStart(tn, 0); range.setEnd(tn, 60);
+          const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+          await new Promise(r => setTimeout(r, 900));
+        }});
+        await chrome.tabs.sendMessage(tab.id, { type: 'BUBBLE_ACTION', action: 'click', id: 'saveBtn' });
+        await new Promise(r => setTimeout(r, 1800));
+        const baseline = await chrome.scripting.executeScript({ target: { tabId: tab.id },
+          func: () => document.querySelectorAll('.offline-notes-highlight').length });
+
+        await disableSite('${ARTICLE}');
+        const saveWhileOff = await savePageContent(tab);
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4500));
+        const marks = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({
+          marks: document.querySelectorAll('.offline-notes-highlight').length,
+          pill: !!document.querySelector('offline-notes-presence'),
+        })});
+        // And back on again.
+        await enableSite('${ARTICLE}');
+        await chrome.tabs.update(tab.id, { active: true });
+        await chrome.tabs.reload(tab.id);
+        await new Promise(r => setTimeout(r, 4500));
+        const after = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => ({
+          marks: document.querySelectorAll('.offline-notes-highlight').length,
+          loaded: !!window.__offlineNotesHighlightLoaded,
+        })});
+        const rulesLeft = await loadDisabledSites();
+        const stored = Object.values((await chrome.storage.local.get('offline_page_notes')).offline_page_notes)[0];
+        return JSON.stringify({
+          baseline: baseline[0].result,
+          saveRefused: saveWhileOff.ok === false,
+          reason: saveWhileOff.error,
+          whileOff: marks[0].result,
+          afterOn: after[0].result.marks,
+          highlightsKept: stored.highlights.length,
+          loadedAfterOn: after[0].result.loaded,
+          rulesLeft,
+        });
+      `);
+      const v = JSON.parse(r);
+      ok(v.baseline > 0, `a highlight paints before turning off (got ${v.baseline})`);
+      eq(v.saveRefused, true, 'saving is refused while off');
+      ok(/turned off/i.test(v.reason), `and says why: ${v.reason}`);
+      eq(v.whileOff.marks, 0, 'no highlights painted while off');
+      eq(v.whileOff.pill, false, 'no indicator while off');
+      ok(v.afterOn > 0, `painting resumes when turned back on (loaded=${v.loadedAfterOn}, rules=${JSON.stringify(v.rulesLeft)}, stored=${v.highlightsKept})`);
+      ok(v.highlightsKept > 0, 'nothing saved was lost');
+    });
+
     await test('backup round-trips every key', async () => {
       const r = await browser.eval('sidebar/sidebar.html', `
         const b = new BackupManager();
