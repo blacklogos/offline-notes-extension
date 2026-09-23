@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-09-23
+
+### Articles that render after the page loads
+
+Saving an article now retries instead of giving up on the first look. Substack's
+reader URL renders the post client-side, so a single immediate attempt read an
+empty shell and said "no readable article" on a page that obviously had one.
+This affects app-rendered articles generally.
+
+### Dismissing the bubble
+
+The capture bubble has a close button, and dismissing it keeps it away for that
+selection rather than popping back.
+
+### Turning it off for a site
+
+Some pages are not for annotating. The popup can turn the extension off for the
+current site, naming it so you know what you are switching. While off there is
+no bubble, no repainting, no indicator and no saving on that site; a rule covers
+subdomains of itself. Nothing already saved is touched, and it all comes back
+when you turn the site on again.
+
 ## [1.3.1] - 2026-09-21
 
 A review pass found twenty-one defects. All of them are fixed or shown not to
