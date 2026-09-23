@@ -7,6 +7,15 @@
   if (window.__offlineNotesHighlightLoaded) return;
   window.__offlineNotesHighlightLoaded = true;
 
+  // Turned off for this site: do nothing at all. No bubble, no repaint, no
+  // indicator. Anything already saved stays saved.
+  let siteDisabled = false;
+  // Kept as a promise as well: repaint runs on the first animation frame and
+  // would otherwise race the lookup and paint on a site that is turned off.
+  const siteDisabledReady = window.SiteRules.isDisabledForUrl(location.href)
+    .then((off) => { siteDisabled = off; return off; })
+    .catch(() => false);
+
   const BUBBLE_TAG = 'offline-notes-bubble';
   const MARK_CLASS = 'offline-notes-highlight';
   const FLASH_CLASS = 'offline-notes-flash';
@@ -26,6 +35,9 @@
   // bubble offers Bold and Note instead of Save: selecting inside an existing
   // highlight used to create a second overlapping copy that could never paint.
   let activeMarkId = null;
+  // The selection the user dismissed the bubble for, so it does not reappear
+  // for the same one while they are reading.
+  let dismissedForSelection = null;
   let currentColor = window.HighlightStyle.DEFAULT_HIGHLIGHT_COLOR;
 
   function setColor(name) {
@@ -76,6 +88,7 @@
         .sw{display:inline-flex;align-items:center;gap:4px;padding:0 8px}
         .sw b{width:14px;height:14px;border-radius:50%;border:1px solid rgba(42,38,34,.25);cursor:pointer;display:inline-block}
         .sw b.on{box-shadow:0 0 0 2px #7C9885}
+        .b.x{color:#8A8275;padding:7px 10px}
         #markBar{display:none}
         #markBar.on{display:flex}
         .bar.off{display:none}
@@ -93,6 +106,8 @@
           <button class="b" id="noteBtn" title="Save and add a note" aria-label="Save and add a note"><span class="i" id="ico2"></span></button>
           <span class="sep"></span>
           <span class="sw" id="sw"></span>
+          <span class="sep"></span>
+          <button class="b x" id="closeBtn" title="Close" aria-label="Close">×</button>
         </div>
         <div class="bar" id="markBar">
           <button class="b" id="boldBtn" title="Emphasise this part of the quote">Bold</button>
@@ -128,6 +143,17 @@
       sw.appendChild(dot);
     }
     paintSwatches();
+
+    // Dismiss for this selection. The bubble stays away until the next one,
+    // so it can be got rid of without losing the selection or the page.
+    const closeBtn = root.getElementById('closeBtn');
+    closeBtn.addEventListener('mousedown', e => e.preventDefault());
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      dismissedForSelection = lastText;
+      commenting = false;
+      hide();
+    });
 
     root.getElementById('boldBtn').addEventListener('mousedown', e => e.preventDefault());
     root.getElementById('boldBtn').addEventListener('click', e => { e.preventDefault(); emphasiseSelection(); });
@@ -165,6 +191,8 @@
   }
 
   function show(rect, markId) {
+    if (siteDisabled) return;
+    if (dismissedForSelection !== null && dismissedForSelection === lastText) return;
     ensureBubble();
     saveCtx = null; // new selection: never reuse the previous capture's context
     lastRect = rect;
@@ -471,6 +499,7 @@
   }
 
   async function repaint() {
+    if (await siteDisabledReady) return;
     try {
       const r = await send({ type: 'GET_PAGE_NOTE_WITH_SCROLL', url: location.href });
       const note = r && r.pageNote;
